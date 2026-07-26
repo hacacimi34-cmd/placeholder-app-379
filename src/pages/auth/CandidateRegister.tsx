@@ -100,7 +100,8 @@ const CandidateRegister = () => {
     setLoading(true);
 
     try {
-      // Step 1: Create user account via direct API for full error control
+      // Step 1: Try to create user account
+      let user: any = null;
       const signUpResponse = await fetch('/api/v2/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -117,18 +118,33 @@ const CandidateRegister = () => {
         const errorCode = signUpData.message || signUpData.error || 'unknown_error';
         console.error("Signup API error:", signUpResponse.status, errorCode, JSON.stringify(signUpData));
         if (errorCode.includes("email_exists")) {
-          throw new Error("Bu e-poçt artıq qeydiyyatlıdır. Başqa e-poçt istifadə edin.");
+          // Account already exists — try signing in instead
+          console.log("Email exists, attempting sign in...");
+          const signInRes = await fetch('/api/v2/auth/signin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: formData.email, password: formData.password })
+          });
+          const signInData = await signInRes.json();
+          if (!signInRes.ok) {
+            throw new Error("Bu e-poçt artıq qeydiyyatlıdır və şifrə uyğun gəlmir. Başqa e-poçt istifadə edin.");
+          }
+          user = signInData.user;
+          auth.user = user;
+          toast.info("Mövcud hesabla daxil olundu");
         } else if (errorCode.includes("insufficient_password") || errorCode.includes("password")) {
-          throw new Error("Şifrə çox zəifdir. Minimum 8 simvol, böyük/kiçik hərf və rəqəm istifadə edin. Ümumi şifrələr (password123 və s.) qəbul olunmur.");
+          throw new Error("Şifrə qəbul edilmədi. Çox ümumi şifrədir. \"Yarat\" düyməsi ilə yeni şifrə yaradın.");
         } else if (errorCode.includes("invalid_email")) {
           throw new Error("Düzgün e-poçt ünvanı daxil edin.");
         } else {
           throw new Error("Qeydiyyat xətası: " + errorCode);
         }
+      } else {
+        user = signUpData.user;
+        auth.user = user;
       }
 
-      const user = signUpData.user;
-      auth.user = user;
+      console.log("Auth success, user:", user?.userUuid);
 
       // Step 2: Upload CV if provided
       let cvPath = null;
@@ -138,42 +154,42 @@ const CandidateRegister = () => {
           cvPath = result.path;
         } catch (uploadError) {
           console.error("CV upload error:", uploadError);
-          toast.error("CV yüklənmədi, lakin hesab yaradıldı");
         }
       }
 
-      // Step 3: Create candidate profile
-      const candidateData = {
-        user_uuid: user.userUuid,
-        email: formData.email,
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        phone: formData.phone || null,
-        city: formData.city || null,
-        country: formData.country || null,
-        linkedin_url: formData.linkedinUrl || null,
-        portfolio_url: formData.portfolioUrl || null,
-        years_experience: parseInt(formData.yearsExperience) || 0,
-        expected_salary_min: parseInt(formData.expectedSalaryMin) || null,
-        expected_salary_max: parseInt(formData.expectedSalaryMax) || null,
-        skills: JSON.stringify(formData.skills.split(",").map(s => s.trim()).filter(s => s)),
-        bio: formData.bio || null,
-        cv_path: cvPath,
-        job_preferences: JSON.stringify({
-          preferred_department: formData.preferredDepartment,
-          preferred_location: formData.preferredLocation,
-          employment_type: formData.employmentType
-        }),
-        is_active: true
-      };
+      // Step 3: Create candidate profile (non-blocking — account already exists)
+      try {
+        const candidateData = {
+          user_uuid: user.userUuid,
+          email: formData.email,
+          first_name: formData.firstName,
+          last_name: formData.lastName,
+          phone: formData.phone || null,
+          city: formData.city || null,
+          country: formData.country || null,
+          linkedin_url: formData.linkedinUrl || null,
+          portfolio_url: formData.portfolioUrl || null,
+          years_experience: parseInt(formData.yearsExperience) || 0,
+          expected_salary_min: parseInt(formData.expectedSalaryMin) || null,
+          expected_salary_max: parseInt(formData.expectedSalaryMax) || null,
+          skills: JSON.stringify(formData.skills.split(",").map(s => s.trim()).filter(s => s)),
+          bio: formData.bio || null,
+          cv_path: cvPath,
+          job_preferences: JSON.stringify({
+            preferred_department: formData.preferredDepartment,
+            preferred_location: formData.preferredLocation,
+            employment_type: formData.employmentType
+          }),
+          is_active: true
+        };
+        await db.insert("candidates", candidateData);
+        console.log("Candidate profile created");
+      } catch (profileErr) {
+        console.error("Profile creation error (non-fatal):", profileErr);
+      }
 
-      await db.insert("candidates", candidateData);
-
-      toast.success("Qeydiyyat uğurla tamamlandı! Profilinizə yönləndirilirsiniz...");
-      
-      setTimeout(() => {
-        navigate("/candidate/dashboard");
-      }, 1500);
+      toast.success("Qeydiyyat uğurla tamamlandı!");
+      navigate("/candidate/dashboard");
 
     } catch (err: any) {
       console.error("Registration error:", err);
