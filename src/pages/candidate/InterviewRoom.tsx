@@ -58,12 +58,26 @@ const InterviewRoom = () => {
 
   const speech = useSpeechRecognition();
 
-  // Web Speech API səslərini əvvəlcədən yüklə (fallback üçün)
+  // Brauzer səslərini yüklə - neyral səsləri avtomatik tap
   useEffect(() => {
     if (!("speechSynthesis" in window)) return;
-    const loadVoices = () => window.speechSynthesis.getVoices();
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        const trVoices = voices.filter(v => v.lang?.startsWith("tr") || v.lang?.startsWith("az"));
+        const neural = trVoices.filter(v => /natural|neural|online/i.test(v.name));
+        console.log(`[TTS] ${voices.length} səs yükləndi, ${trVoices.length} Türk, ${neural.length} neyral`);
+        if (neural.length > 0) {
+          console.log("[TTS] Neyral səslər:", neural.map(v => `${v.name} (${v.lang})`));
+        }
+      }
+    };
     loadVoices();
     window.speechSynthesis.onvoiceschanged = loadVoices;
+    // Chrome gec yükləyir
+    const interval = setInterval(loadVoices, 1000);
+    setTimeout(() => clearInterval(interval), 10000);
+    return () => clearInterval(interval);
   }, []);
 
   // Timer
@@ -143,23 +157,61 @@ const InterviewRoom = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ttsAbortRef = useRef(false);
 
-  // Mətni kiçik hissələrə böl - təbii danışıq üçün qısa cümlələr
-  const splitIntoChunks = (text: string, maxLen = 140): string[] => {
-    // Mətni TTS üçün təmizlə
+  // Brauzerdə ən yaxşı Türk neyral səsini tap
+  const findNeuralVoice = (isF: boolean): SpeechSynthesisVoice | null => {
+    if (!("speechSynthesis" in window)) return null;
+    const voices = window.speechSynthesis.getVoices();
+    if (!voices || voices.length === 0) return null;
+
+    // Türk və Azərbaycan səsləri
+    const trVoices = voices.filter(v =>
+      v.lang?.startsWith("tr") || v.lang?.startsWith("az")
+    );
+
+    // Neyral/təbii səsləri tap (Microsoft Natural, Google, və s.)
+    const neural = trVoices.filter(v =>
+      /natural|neural|online|premium|wavenet/i.test(v.name)
+    );
+
+    const pool = neural.length > 0 ? neural : trVoices;
+    if (pool.length === 0) return null;
+
+    console.log(`[TTS] ${pool.length} səs tapıldı:`, pool.map(v => v.name));
+
+    // Cinsiyyətə uyğun səs seç
+    if (isF) {
+      return pool.find(v => /emel|female|kadın|zira|filiz|seline|woman/i.test(v.name)) || pool[0];
+    } else {
+      return pool.find(v => /ahmet|male|erkek|tolga|burak|man/i.test(v.name)) || pool[0];
+    }
+  };
+
+  // Brauzer neyral səsi ilə danış - ƏN YÜKSƏK keyfiyyət
+  const speakWithNeural = (text: string, voice: SpeechSynthesisVoice): Promise<void> => {
+    return new Promise((resolve) => {
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+      utterance.rate = 0.95;
+      utterance.pitch = voice.name.includes("Emel") || voice.name.includes("female") ? 1.05 : 0.95;
+      utterance.volume = 1;
+      utterance.onend = () => resolve();
+      utterance.onerror = () => resolve();
+      window.speechSynthesis.speak(utterance);
+    });
+  };
+
+  // Mətni hissələrə böl
+  const splitIntoChunks = (text: string, maxLen = 200): string[] => {
     const clean = text
-      .replace(/\*\*/g, "")
       .replace(/[*#_`]/g, "")
       .replace(/\.{2,}/g, ".")
       .replace(/\s+/g, " ")
       .trim();
-
-    // Nöqtə, sual, nida ilə cümlələrə böl
     const sentences = clean.split(/(?<=[.!?])\s+/).filter((s: string) => s.trim());
     const chunks: string[] = [];
     let current = "";
-
     for (const sentence of sentences) {
-      // Vergüllə də böl - qısa hissələr daha təbii səslənir
       if (sentence.length > maxLen) {
         const parts = sentence.split(/(?<=[,;:])\s+/);
         current = "";
@@ -167,27 +219,22 @@ const InterviewRoom = () => {
           if ((current + " " + part).length > maxLen) {
             if (current.trim()) chunks.push(current.trim());
             current = part.trim();
-          } else {
-            current += (current ? " " : "") + part;
-          }
+          } else { current += (current ? " " : "") + part; }
         }
         if (current.trim()) chunks.push(current.trim());
         current = "";
       } else if ((current + " " + sentence).length > maxLen) {
         if (current.trim()) chunks.push(current.trim());
         current = sentence.trim();
-      } else {
-        current += (current ? " " : "") + sentence;
-      }
+      } else { current += (current ? " " : "") + sentence; }
     }
     if (current.trim()) chunks.push(current.trim());
     return chunks.length > 0 ? chunks : [clean];
   };
 
-  // Yüksək keyfiyyətli Türk səsi - 3 qat yedək sistem
+  // Edge function TTS (Google Translate neyral səsi)
   const playTTS = (text: string, voice: string): Promise<void> => {
     return new Promise(async (resolve, reject) => {
-      // 1. Edge function proxy (ən etibarlı - CORS yoxdur)
       try {
         const resp = await fetch("/api/v2/function/tts-service", {
           method: "POST",
@@ -199,51 +246,49 @@ const InterviewRoom = () => {
           if (blob.size > 0) {
             const audioUrl = URL.createObjectURL(blob);
             const audio = new Audio(audioUrl);
-            audio.playbackRate = 0.92; // Bir az yavaş - təbii danışıq
             audioRef.current = audio;
             audio.onended = () => { URL.revokeObjectURL(audioUrl); resolve(); };
-            audio.onerror = () => { URL.revokeObjectURL(audioUrl); reject(new Error("Edge TTS play failed")); };
+            audio.onerror = () => { URL.revokeObjectURL(audioUrl); reject(new Error("Play failed")); };
             await audio.play();
             return;
           }
         }
       } catch (e) {
-        console.warn("[TTS] Edge function uğursuz, birbaşa cəhd:", e);
+        console.warn("[TTS] Edge function failed:", e);
       }
 
-      // 2. Birbaşa StreamElements fallback
+      // StreamElements fallback
       try {
         const seVoice = voice === "Ahmet" ? "Burak" : "Filiz";
         const url = `https://api.streamelements.com/kappa/v2/speech?voice=${seVoice}&text=${encodeURIComponent(text.substring(0, 500))}`;
         const audio = new Audio(url);
-        audio.playbackRate = 0.92; // Bir az yavaş - təbii danışıq
         audioRef.current = audio;
         audio.onended = () => resolve();
-        audio.onerror = () => reject(new Error("StreamElements failed"));
+        audio.onerror = () => reject(new Error("SE failed"));
         await audio.play();
         return;
       } catch (e) {
-        console.warn("[TTS] StreamElements uğursuz, brauzer səsinə keçid:", e);
+        console.warn("[TTS] SE failed:", e);
       }
-
-      reject(new Error("All TTS providers failed"));
+      reject(new Error("All TTS failed"));
     });
   };
 
-  // Web Speech API fallback
+  // Web Speech API son çarə
   const speakWithBrowser = (text: string, isF: boolean): Promise<void> => {
     return new Promise((resolve) => {
       if (!("speechSynthesis" in window)) { resolve(); return; }
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = "tr-TR";
-      utterance.rate = 0.85;
-      utterance.pitch = isF ? 1.05 : 0.88;
+      utterance.rate = 0.9;
+      utterance.pitch = isF ? 1.05 : 0.9;
       utterance.onend = () => resolve();
       utterance.onerror = () => resolve();
       window.speechSynthesis.speak(utterance);
     });
   };
 
+  // ƏSAS danışıq funksiyası - əvvəlcə brauzer neyral səsi, sonra edge function
   const speakText = async (text: string, isFemale?: boolean) => {
     if (!text || text.trim().length === 0) return;
 
@@ -255,31 +300,43 @@ const InterviewRoom = () => {
     ttsAbortRef.current = false;
 
     const isF = isFemale ?? persona.gender === "female";
-    const ttsVoice = isF ? "Emel" : "Ahmet"; // Microsoft Neural Türk səsləri
-    const chunks = splitIntoChunks(text);
-
     setAiSpeaking(true);
-    console.log(`[TTS] Başlayır: ${chunks.length} hissə, səs=${ttsVoice}`);
+
+    // 1. Brauzerdə neyral səs varsa - ƏN YAXŞI keyfiyyət
+    const neuralVoice = findNeuralVoice(isF);
+    if (neuralVoice) {
+      console.log(`[TTS] Neyral səs istifadə olunur: ${neuralVoice.name} (${neuralVoice.lang})`);
+      const chunks = splitIntoChunks(text, 250);
+      for (let i = 0; i < chunks.length; i++) {
+        if (ttsAbortRef.current) break;
+        await speakWithNeural(chunks[i], neuralVoice);
+        if (i < chunks.length - 1 && !ttsAbortRef.current) {
+          await new Promise(r => setTimeout(r, 300));
+        }
+      }
+      if (!ttsAbortRef.current) setAiSpeaking(false);
+      return;
+    }
+
+    // 2. Neyral səs yoxdursa - edge function (Google Translate neyral)
+    console.log("[TTS] Neyral səs tapılmadı, edge function istifadə olunur");
+    const ttsVoice = isF ? "Emel" : "Ahmet";
+    const chunks = splitIntoChunks(text, 200);
 
     for (let i = 0; i < chunks.length; i++) {
       if (ttsAbortRef.current) break;
       try {
-        console.log(`[TTS] Hissə ${i+1}/${chunks.length}: ${chunks[i].substring(0, 50)}...`);
         await playTTS(chunks[i], ttsVoice);
-        // Hissələr arası təbii fasilə - insan kimi nəfəs alma
         if (i < chunks.length - 1 && !ttsAbortRef.current) {
-          await new Promise(r => setTimeout(r, 400));
+          await new Promise(r => setTimeout(r, 300));
         }
       } catch (err) {
-        console.warn(`[TTS] TTS uğursuz, brauzer səsinə keçid:`, err);
+        console.warn("[TTS] TTS uğursuz, brauzer:", err);
         await speakWithBrowser(chunks[i], isF);
       }
     }
 
-    if (!ttsAbortRef.current) {
-      setAiSpeaking(false);
-      console.log("[TTS] Bitdi");
-    }
+    if (!ttsAbortRef.current) setAiSpeaking(false);
   };
 
   const loadInterview = async () => {
