@@ -29,8 +29,11 @@ const HRLogin = () => {
     try {
       await auth.signIn(formData.email, formData.password);
       
+      // Refresh user data to get groups
+      const currentUser = await auth.getUser(true);
+      
       // Check if user has hr_managers role
-      const hasHR = await auth.hasGroup("hr_managers");
+      const hasHR = auth.hasGroup("hr_managers");
       if (hasHR) {
         toast.success(t('welcomeHR') || "Xoş gəldiniz! HR panelinə yönləndirilirsiniz...");
         navigate("/hr/dashboard");
@@ -152,7 +155,7 @@ const HRLogin = () => {
                   🔑 Demo HR Girişi:
                 </p>
                 <p className="text-xs text-slate-600 dark:text-slate-400">
-                  E-poçt: <span className="font-mono font-medium">yegoxif905@aganseo.com</span>
+                  E-poçt: <span className="font-mono font-medium">hr.demo@hrpro.az</span>
                 </p>
                 <p className="text-xs text-slate-600 dark:text-slate-400">
                   Şifrə: <span className="font-mono font-medium">HrPro2026!</span>
@@ -162,7 +165,7 @@ const HRLogin = () => {
                 type="button"
                 variant="outline"
                 className="w-full"
-                onClick={() => setFormData({ email: "yegoxif905@aganseo.com", password: "HrPro2026!" })}
+                onClick={() => setFormData({ email: "hr.demo@hrpro.az", password: "HrPro2026!" })}
               >
                 Demo məlumatları doldur
               </Button>

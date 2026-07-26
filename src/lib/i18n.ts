@@ -7,6 +7,63 @@ export interface Translations {
 }
 
 export const translations: Translations = {
+  // Auth Page Texts
+  hrPortalLogin: {
+    az: 'HR Portal Girişi',
+    en: 'HR Portal Login',
+    ru: 'Вход в HR Портал'
+  },
+  hrPortalDesc: {
+    az: 'İnsan resursları panelinə daxil olun',
+    en: 'Access the HR management panel',
+    ru: 'Войдите в панель управления персоналом'
+  },
+  welcomeHR: {
+    az: 'Xoş gəldiniz! HR panelinə yönləndirilirsiniz...',
+    en: 'Welcome! Redirecting to HR panel...',
+    ru: 'Добро пожаловать! Перенаправление в HR панель...'
+  },
+  noHRPermission: {
+    az: 'HR menecer icazəsi yoxdur. Zəhmət olmasa adminlə əlaqə saxlayın.',
+    en: 'No HR manager permission. Please contact admin.',
+    ru: 'Нет прав HR-менеджера. Обратитесь к администратору.'
+  },
+  invalidCredentials: {
+    az: 'E-poçt və ya şifrə yanlışdır',
+    en: 'Invalid email or password',
+    ru: 'Неверный email или пароль'
+  },
+  accountLocked: {
+    az: 'Hesab bloklanıb. Zəhmət olmasa adminlə əlaqə saxlayın.',
+    en: 'Account locked. Please contact admin.',
+    ru: 'Аккаунт заблокирован. Обратитесь к администратору.'
+  },
+  loginError: {
+    az: 'Giriş zamanı xəta baş verdi. Yenidən cəhd edin.',
+    en: 'An error occurred during login. Please try again.',
+    ru: 'Произошла ошибка при входе. Попробуйте снова.'
+  },
+  loggingIn: {
+    az: 'Giriş edilir...',
+    en: 'Logging in...',
+    ru: 'Вход...'
+  },
+  forgotPassword: {
+    az: 'Şifrəmi unuttum',
+    en: 'Forgot password',
+    ru: 'Забыли пароль'
+  },
+  notHRManager: {
+    az: 'HR menecer deyilsiniz?',
+    en: 'Not an HR manager?',
+    ru: 'Не HR-менеджер?'
+  },
+  registerCandidate: {
+    az: 'Namizəd kimi qeydiyyatdan keçin',
+    en: 'Register as candidate',
+    ru: 'Зарегистрироваться как кандидат'
+  },
+
   // App & Navigation
   appName: {
     az: 'HR Pro',
