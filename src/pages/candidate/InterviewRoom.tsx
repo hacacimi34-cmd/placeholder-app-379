@@ -211,9 +211,9 @@ const InterviewRoom = () => {
         console.warn("[TTS] Edge function uğursuz, birbaşa cəhd:", e);
       }
 
-      // 2. Birbaşa StreamElements (Audio element ilə - CORS tələb olunmur)
+      // 2. Birbaşa StreamElements fallback
       try {
-        const seVoice = voice === "Burak" ? "Burak" : "Filiz";
+        const seVoice = voice === "Ahmet" ? "Burak" : "Filiz";
         const url = `https://api.streamelements.com/kappa/v2/speech?voice=${seVoice}&text=${encodeURIComponent(text.substring(0, 500))}`;
         const audio = new Audio(url);
         audio.playbackRate = 0.92; // Bir az yavaş - təbii danışıq
@@ -255,7 +255,7 @@ const InterviewRoom = () => {
     ttsAbortRef.current = false;
 
     const isF = isFemale ?? persona.gender === "female";
-    const ttsVoice = isF ? "Filiz" : "Burak"; // StreamElements Türk səsləri
+    const ttsVoice = isF ? "Emel" : "Ahmet"; // Microsoft Neural Türk səsləri
     const chunks = splitIntoChunks(text);
 
     setAiSpeaking(true);
