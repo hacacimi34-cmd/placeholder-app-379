@@ -10,6 +10,20 @@ import {
   ArrowRight, Clock, Award, AlertCircle, Sparkles, Send,
   Square, Radio, Eye, TrendingUp, MessageSquare, Target
 } from "lucide-react";
+
+// AI Personası - qadın və kişi müsahibəçilər
+const AI_PERSONAS = [
+  { name: "Aysel", gender: "female", title: "HR Direktor", seed: "Aysel" },
+  { name: "Leyla", gender: "female", title: "HR Menecer", seed: "Leyla" },
+  { name: "Nərminə", gender: "female", title: "Talent Acquisition", seed: "Nermine" },
+  { name: "Rəşad", gender: "male", title: "HR Direktor", seed: "Reshad" },
+  { name: "Tural", gender: "male", title: "HR Menecer", seed: "Tural" },
+  { name: "Elçin", gender: "male", title: "Talent Acquisition", seed: "Elchin" },
+];
+
+// Qadın/Kşi avatarı - DiceBear API
+const getAvatarUrl = (seed: string) =>
+  `https://api.dicebear.com/7.x/notionists/svg?seed=${seed}&backgroundColor=c0aede,b6e3f4,d1f4c0,ffd5dc,ffdfbf`;
 import db from "@/lib/shared/kliv-database.js";
 import auth from "@/lib/shared/kliv-auth.js";
 import functions from "@/lib/shared/kliv-functions.js";
@@ -40,6 +54,7 @@ const InterviewRoom = () => {
   const [inputMode, setInputMode] = useState<InputMode>("voice");
   const [interviewSeconds, setInterviewSeconds] = useState(0);
   const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [persona] = useState(() => AI_PERSONAS[Math.floor(Math.random() * AI_PERSONAS.length)]);
 
   const speech = useSpeechRecognition();
 
@@ -64,6 +79,21 @@ const InterviewRoom = () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [phase]);
+
+  // AI feedback-i səslə bildir
+  useEffect(() => {
+    if (phase === "feedback" && feedback) {
+      const qualityReactions: Record<string, string> = {
+        excellent: "Çox əla cavab verdi!",
+        good: "Yaxşı cavab verdiniz, təşəkkür edirəm.",
+        satisfactory: "Cavabınız kafi səviyyədədir.",
+        needs_improvement: "Bu cavabı bir az daha inkişaf etdirə bilərdiniz.",
+      };
+      const reaction = qualityReactions[feedback.quality] || "Cavabınız qeydə alındı.";
+      const fullFeedback = `${reaction} ${feedback.feedback || ""}`;
+      setTimeout(() => speakText(fullFeedback), 300);
+    }
+  }, [phase, feedback]);
 
   // Update transcript to answer
   useEffect(() => {
@@ -108,7 +138,7 @@ const InterviewRoom = () => {
     setCameraOn(false);
   }, []);
 
-  const speakText = (text: string) => {
+  const speakText = (text: string, isFemale?: boolean) => {
     if (!("speechSynthesis" in window)) return;
 
     // Öncəki danışığı dayandır
@@ -118,27 +148,52 @@ const InterviewRoom = () => {
 
     const utterance = new SpeechSynthesisUtterance(text);
 
-    // Azərbaycan səsini tap, yoxsa Türk, yoxsa Rus
+    // Qadın səsi və ya kişi səsi seç
+    const isF = isFemale ?? persona.gender === "female";
     const voices = window.speechSynthesis.getVoices();
-    const azVoice = voices.find(v => v.lang === 'az-AZ' || v.lang === 'az');
-    const trVoice = voices.find(v => v.lang === 'tr-TR' || v.lang === 'tr');
-    const ruVoice = voices.find(v => v.lang === 'ru-RU' || v.lang === 'ru');
 
-    if (azVoice) {
-      utterance.voice = azVoice;
-      utterance.lang = azVoice.lang;
-    } else if (trVoice) {
-      utterance.voice = trVoice;
-      utterance.lang = trVoice.lang;
-    } else if (ruVoice) {
-      utterance.voice = ruVoice;
-      utterance.lang = ruVoice.lang;
+    // Azərbaycan səsini tap
+    const azVoices = voices.filter(v => v.lang === 'az-AZ' || v.lang === 'az');
+    const trVoices = voices.filter(v => v.lang === 'tr-TR' || v.lang === 'tr');
+    const ruVoices = voices.filter(v => v.lang === 'ru-RU' || v.lang === 'ru');
+
+    // Qadın səsi üçün adətən female işarəli səsləri tap
+    const findVoice = (list: any[]) => {
+      if (isF) {
+        const f = list.find(v => v.name.toLowerCase().includes('female')) ||
+                  list.find(v => v.name.toLowerCase().includes('woman')) ||
+                  list.find(v => v.name.toLowerCase().includes('zira')) ||
+                  list.find(v => v.name.toLowerCase().includes('seline'));
+        return f || list[0];
+      } else {
+        const m = list.find(v => v.name.toLowerCase().includes('male')) ||
+                  list.find(v => v.name.toLowerCase().includes('man')) ||
+                  list.find(v => v.name.toLowerCase().includes('david')) ||
+                  list.find(v => v.name.toLowerCase().includes('tolga'));
+        return m || list[0];
+      }
+    };
+
+    const azMatch = findVoice(azVoices);
+    const trMatch = findVoice(trVoices);
+    const ruMatch = findVoice(ruVoices);
+
+    if (azMatch) {
+      utterance.voice = azMatch;
+      utterance.lang = azMatch.lang;
+    } else if (trMatch) {
+      utterance.voice = trMatch;
+      utterance.lang = trMatch.lang;
+    } else if (ruMatch) {
+      utterance.voice = ruMatch;
+      utterance.lang = ruMatch.lang;
     } else {
       utterance.lang = 'tr-TR';
     }
 
-    utterance.rate = 0.9;
-    utterance.pitch = 1;
+    utterance.rate = 0.92;
+    utterance.pitch = isF ? 1.1 : 0.9;
+    utterance.volume = 1;
     utterance.onend = () => setAiSpeaking(false);
     utterance.onerror = () => setAiSpeaking(false);
 
@@ -211,7 +266,10 @@ const InterviewRoom = () => {
     setCurrentAnswer("");
     setAnswers([]);
     setInterviewSeconds(0);
-    setTimeout(() => speakText(questions[0]?.question || ""), 500);
+
+    // Insan kimi salamlama + ilk sual
+    const greeting = `Salam! Mən adım ${persona.name}. ${persona.title} kimi bu gün ${vacancy?.title || "vakansiya"} vəzifəsi üçün sizinlə müsahibə aparacağam. Rahat olun, sadəcə özünüzü ifadə edin. İlk sualım: ${questions[0]?.question || ""}`;
+    setTimeout(() => speakText(greeting), 500);
   };
 
   const toggleListening = () => {
@@ -291,9 +349,21 @@ const InterviewRoom = () => {
     speech.reset();
 
     if (currentQ + 1 < questions.length) {
-      setCurrentQ(currentQ + 1);
+      const nextIdx = currentQ + 1;
+      setCurrentQ(nextIdx);
       setPhase("interview");
-      setTimeout(() => speakText(questions[currentQ + 1]?.question || ""), 300);
+
+      // Insan kimi keçid ifadələri
+      const transitions = [
+        "Təşəkkür edirəm. Növbəti sual:",
+        "Çox yaxşı. İndi isə maraqlı bir sual:",
+        "Anlaşıldı. Gəlin növbəti mövzuya keçək:",
+        "Təşəkkürlər. İndi bu barədə danışın:",
+        "Yaxşı cavab. Növbəti sualım belədir:",
+      ];
+      const transition = transitions[Math.floor(Math.random() * transitions.length)];
+      const fullText = `${transition} ${questions[nextIdx]?.question || ""}`;
+      setTimeout(() => speakText(fullText), 300);
     } else {
       await finishInterview(newAnswers);
     }
@@ -359,9 +429,10 @@ const InterviewRoom = () => {
         <div className="text-center">
           <div className="relative w-24 h-24 mx-auto mb-6">
             <div className="absolute inset-0 bg-purple-600 rounded-full animate-ping opacity-20" />
-            <div className="relative w-24 h-24 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full flex items-center justify-center">
-              <BrainCircuit className="w-12 h-12 text-white animate-pulse" />
+            <div className="relative w-24 h-24 rounded-full overflow-hidden border-4 border-purple-500 mx-auto mb-2">
+              <img src={getAvatarUrl(persona.seed)} className="w-full h-full object-cover bg-purple-900" />
             </div>
+            <p className="text-purple-300 text-sm font-medium">{persona.name} • AI Müsahibəçi</p>
           </div>
           <p className="text-blue-300 text-lg">AI Müsahibə Sistemi Hazırlanır...</p>
           <p className="text-slate-500 text-sm mt-2">Vakansiya tələbləri analiz edilir</p>
@@ -380,13 +451,14 @@ const InterviewRoom = () => {
               <div className="flex justify-center mb-4">
                 <div className="relative">
                   {aiSpeaking && <div className="absolute inset-0 bg-purple-600 rounded-2xl animate-ping opacity-30" />}
-                  <div className="relative w-20 h-20 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl flex items-center justify-center">
-                    <BrainCircuit className="w-10 h-10 text-white" />
+                  <div className="relative w-20 h-20 rounded-2xl overflow-hidden border-4 border-purple-500">
+                    <img src={getAvatarUrl(persona.seed)} className="w-full h-full object-cover bg-purple-900" />
                   </div>
                 </div>
               </div>
               <CardTitle className="text-3xl text-white font-bold">AI Müsahibə Otağı</CardTitle>
-              <p className="text-blue-300 mt-2 text-lg">{vacancy?.title || "Vakansiya"} üçün ağıllı müsahibə</p>
+              <p className="text-blue-300 mt-1 text-sm">{persona.name} • {persona.title}</p>
+              <p className="text-slate-400 mt-2 text-base">{vacancy?.title || "Vakansiya"} üçün ağıllı müsahibə</p>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="relative rounded-xl overflow-hidden bg-slate-800 aspect-video max-w-lg mx-auto border-2 border-slate-700">
@@ -536,18 +608,18 @@ const InterviewRoom = () => {
               {/* AI Interviewer */}
               <div>
                 <p className="text-xs text-slate-400 mb-2 flex items-center gap-1">
-                  <BrainCircuit className="w-3 h-3" /> AI Müsahibəçi
+                  <BrainCircuit className="w-3 h-3" /> {persona.name} • AI Müsahibəçi
                 </p>
                 <div className="relative rounded-xl bg-gradient-to-br from-purple-900/50 to-indigo-900/50 border-2 border-purple-800/50 aspect-video flex flex-col items-center justify-center gap-2">
                   {aiSpeaking && <div className="absolute inset-0 bg-purple-600/10 animate-pulse rounded-xl" />}
                   <div className="relative">
                     {aiSpeaking && <div className="absolute inset-0 bg-purple-500 rounded-full animate-ping opacity-20" />}
-                    <div className={`relative w-16 h-16 bg-gradient-to-br from-purple-600 to-indigo-600 rounded-full flex items-center justify-center transition-transform ${aiSpeaking ? "scale-110" : "scale-100"}`}>
-                      <BrainCircuit className="w-8 h-8 text-white" />
+                    <div className={`relative w-16 h-16 rounded-full overflow-hidden border-2 border-purple-400 transition-transform ${aiSpeaking ? "scale-110" : "scale-100"}`}>
+                      <img src={getAvatarUrl(persona.seed)} className="w-full h-full object-cover bg-purple-900" />
                     </div>
                   </div>
                   <p className="text-purple-300 text-sm font-medium">
-                    {aiSpeaking ? "Danışır..." : "Dinləyir"}
+                    {aiSpeaking ? `${persona.name} danışır...` : `${persona.name}`}
                   </p>
                   {aiSpeaking && (
                     <div className="flex gap-1">
@@ -571,7 +643,7 @@ const InterviewRoom = () => {
                 <CardHeader className="pb-3">
                   <div className="flex items-center gap-2 mb-3">
                     <Button size="sm" variant="ghost" onClick={() => speakText(q.question)} className="text-purple-300 hover:text-purple-200 h-7">
-                      <Sparkles className="w-3 h-3 mr-1" /> Sualı Səsləndir
+                      <Sparkles className="w-3 h-3 mr-1" /> {persona.name} səsləndirsin
                     </Button>
                   </div>
                   <CardTitle className="text-lg text-white leading-relaxed">{q.question}</CardTitle>
@@ -706,8 +778,14 @@ const InterviewRoom = () => {
         <div className="max-w-2xl w-full">
           <Card className="bg-slate-900/90 border-slate-800">
             <CardHeader className="text-center">
-              <div className={`w-20 h-20 rounded-full flex items-center justify-center border-2 mx-auto mb-3 ${q.color}`}>
-                <Award className="w-10 h-10" />
+              <div className="flex items-center justify-center gap-3 mb-3">
+                <div className={`w-16 h-16 rounded-full overflow-hidden border-2 ${q.color.split(" ")[0]}`}>
+                  <img src={getAvatarUrl(persona.seed)} className="w-full h-full object-cover bg-purple-900" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm text-purple-300 font-medium">{persona.name}</p>
+                  <p className="text-xs text-slate-500">{persona.title}</p>
+                </div>
               </div>
               <CardTitle className="text-2xl text-white">{q.label}</CardTitle>
               <div className="mt-2">
