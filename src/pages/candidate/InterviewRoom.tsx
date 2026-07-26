@@ -58,21 +58,12 @@ const InterviewRoom = () => {
 
   const speech = useSpeechRecognition();
 
-  // Səs siyahısını əvvəlcədən yüklə - Türk səslərini prioritet et
+  // Web Speech API səslərini əvvəlcədən yüklə (fallback üçün)
   useEffect(() => {
     if (!("speechSynthesis" in window)) return;
-    
     const loadVoices = () => window.speechSynthesis.getVoices();
     loadVoices();
-    
-    // Brauzerlər səsləri fərqli vaxtda yükləyir
     window.speechSynthesis.onvoiceschanged = loadVoices;
-    
-    // Chrome bəzən gecikir - polling
-    const interval = setInterval(loadVoices, 500);
-    setTimeout(() => clearInterval(interval), 5000);
-    
-    return () => clearInterval(interval);
   }, []);
 
   // Timer
@@ -118,11 +109,10 @@ const InterviewRoom = () => {
       }
       if (speech.isListening) speech.stop();
       if (timerRef.current) clearInterval(timerRef.current);
-      // Danışığı dayandır
-      if ("speechSynthesis" in window) {
-        isSpeakingRef.current = false;
-        window.speechSynthesis.cancel();
-      }
+      // Audio və TTS dayandır
+      ttsAbortRef.current = true;
+      if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     };
   }, []);
 
@@ -150,104 +140,123 @@ const InterviewRoom = () => {
     setCameraOn(false);
   }, []);
 
-  const speechQueueRef = useRef<string[]>([]);
-  const isSpeakingRef = useRef(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const ttsAbortRef = useRef(false);
 
-  const speakText = (text: string, isFemale?: boolean) => {
-    if (!("speechSynthesis" in window)) return;
-
-    // Hər şeyi dayandır
-    window.speechSynthesis.cancel();
-    speechQueueRef.current = [];
-    isSpeakingRef.current = false;
-
-    const isF = isFemale ?? persona.gender === "female";
-    const voices = window.speechSynthesis.getVoices();
-
-    // SADECE Türk və Azərbaycan səsləri - Rus səsi İSTİFADƏ OLUNMUR
-    const trVoices = voices.filter(v =>
-      v.lang === 'tr-TR' || v.lang === 'tr' ||
-      v.lang === 'az-AZ' || v.lang === 'az'
-    );
-
-    // Qadın və ya kişi səsini seç
-    const selectVoice = () => {
-      if (trVoices.length === 0) return null;
-      if (isF) {
-        return trVoices.find(v => v.name.toLowerCase().includes('female')) ||
-               trVoices.find(v => v.name.toLowerCase().includes('woman')) ||
-               trVoices.find(v => v.name.toLowerCase().includes('zira')) ||
-               trVoices.find(v => v.name.toLowerCase().includes('seline')) ||
-               trVoices.find(v => v.name.toLowerCase().includes('filiz')) ||
-               trVoices[0];
-      } else {
-        return trVoices.find(v => v.name.toLowerCase().includes('male')) ||
-               trVoices.find(v => v.name.toLowerCase().includes('man')) ||
-               trVoices.find(v => v.name.toLowerCase().includes('tolga')) ||
-               trVoices[0];
-      }
-    };
-    const bestVoice = selectVoice();
-
-    // Mətni cümlələrə böl - sözləri yeməmək üçün
-    const sentences = text
-      .split(/(?<=[.!?])\s+/)
-      .filter((s: string) => s.trim().length > 0);
-
-    // Çox uzun cümlələri vergüllən böl
+  // Mətni hissələrə böl (TTS API limiti üçün)
+  const splitIntoChunks = (text: string, maxLen = 400): string[] => {
+    const sentences = text.split(/(?<=[.!?])\s+/).filter((s: string) => s.trim());
     const chunks: string[] = [];
+    let current = "";
     for (const sentence of sentences) {
-      if (sentence.length > 120) {
-        const parts = sentence.split(/(?<=,)\s+/);
-        let current = "";
-        for (const part of parts) {
-          if ((current + part).length > 120) {
-            if (current.trim()) chunks.push(current.trim());
-            current = part;
-          } else {
-            current += (current ? " " : "") + part;
+      if ((current + " " + sentence).length > maxLen) {
+        if (current.trim()) chunks.push(current.trim());
+        if (sentence.length > maxLen) {
+          const parts = sentence.split(/(?<=,)\s+/);
+          current = "";
+          for (const part of parts) {
+            if ((current + " " + part).length > maxLen) {
+              if (current.trim()) chunks.push(current.trim());
+              current = part;
+            } else { current += (current ? " " : "") + part; }
+          }
+        } else { current = sentence; }
+      } else { current += (current ? " " : "") + sentence; }
+    }
+    if (current.trim()) chunks.push(current.trim());
+    return chunks.length > 0 ? chunks : [text];
+  };
+
+  // Yüksək keyfiyyətli Türk səsi - 3 qat yedək sistem
+  const playTTS = (text: string, voice: string): Promise<void> => {
+    return new Promise(async (resolve, reject) => {
+      // 1. Edge function proxy (ən etibarlı - CORS yoxdur)
+      try {
+        const resp = await fetch("/api/v2/function/tts-service", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, voice }),
+        });
+        if (resp.ok) {
+          const blob = await resp.blob();
+          if (blob.size > 0) {
+            const audioUrl = URL.createObjectURL(blob);
+            const audio = new Audio(audioUrl);
+            audioRef.current = audio;
+            audio.onended = () => { URL.revokeObjectURL(audioUrl); resolve(); };
+            audio.onerror = () => { URL.revokeObjectURL(audioUrl); reject(new Error("Edge TTS play failed")); };
+            await audio.play();
+            return;
           }
         }
-        if (current.trim()) chunks.push(current.trim());
-      } else {
-        chunks.push(sentence.trim());
+      } catch (e) {
+        console.warn("[TTS] Edge function uğursuz, birbaşa cəhd:", e);
+      }
+
+      // 2. Birbaşa StreamElements (Audio element ilə - CORS tələb olunmur)
+      try {
+        const seVoice = voice === "Burak" ? "Burak" : "Filiz";
+        const url = `https://api.streamelements.com/kappa/v2/speech?voice=${seVoice}&text=${encodeURIComponent(text.substring(0, 500))}`;
+        const audio = new Audio(url);
+        audioRef.current = audio;
+        audio.onended = () => resolve();
+        audio.onerror = () => reject(new Error("StreamElements failed"));
+        await audio.play();
+        return;
+      } catch (e) {
+        console.warn("[TTS] StreamElements uğursuz, brauzer səsinə keçid:", e);
+      }
+
+      reject(new Error("All TTS providers failed"));
+    });
+  };
+
+  // Web Speech API fallback
+  const speakWithBrowser = (text: string, isF: boolean): Promise<void> => {
+    return new Promise((resolve) => {
+      if (!("speechSynthesis" in window)) { resolve(); return; }
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "tr-TR";
+      utterance.rate = 0.85;
+      utterance.pitch = isF ? 1.05 : 0.88;
+      utterance.onend = () => resolve();
+      utterance.onerror = () => resolve();
+      window.speechSynthesis.speak(utterance);
+    });
+  };
+
+  const speakText = async (text: string, isFemale?: boolean) => {
+    if (!text || text.trim().length === 0) return;
+
+    // Hər şeyi dayandır
+    ttsAbortRef.current = true;
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    await new Promise(r => setTimeout(r, 150));
+    ttsAbortRef.current = false;
+
+    const isF = isFemale ?? persona.gender === "female";
+    const ttsVoice = isF ? "Filiz" : "Burak"; // StreamElements Türk səsləri
+    const chunks = splitIntoChunks(text);
+
+    setAiSpeaking(true);
+    console.log(`[TTS] Başlayır: ${chunks.length} hissə, səs=${ttsVoice}`);
+
+    for (let i = 0; i < chunks.length; i++) {
+      if (ttsAbortRef.current) break;
+      try {
+        console.log(`[TTS] Hissə ${i+1}/${chunks.length}: ${chunks[i].substring(0, 50)}...`);
+        await playTTS(chunks[i], ttsVoice);
+      } catch (err) {
+        console.warn(`[TTS] StreamElements uğursuz, brauzer səsinə keçid:`, err);
+        await speakWithBrowser(chunks[i], isF);
       }
     }
 
-    speechQueueRef.current = chunks;
-    setAiSpeaking(true);
-    isSpeakingRef.current = true;
-
-    const speakNext = () => {
-      if (!isSpeakingRef.current) return;
-
-      const chunk = speechQueueRef.current.shift();
-      if (!chunk) {
-        isSpeakingRef.current = false;
-        setAiSpeaking(false);
-        return;
-      }
-
-      const utterance = new SpeechSynthesisUtterance(chunk);
-      if (bestVoice) {
-        utterance.voice = bestVoice;
-        utterance.lang = bestVoice.lang;
-      } else {
-        utterance.lang = 'tr-TR';
-      }
-      utterance.rate = 0.82;
-      utterance.pitch = isF ? 1.05 : 0.88;
-      utterance.volume = 1;
-      utterance.onend = () => setTimeout(speakNext, 200);
-      utterance.onerror = () => {
-        isSpeakingRef.current = false;
-        setAiSpeaking(false);
-      };
-
-      window.speechSynthesis.speak(utterance);
-    };
-
-    speakNext();
+    if (!ttsAbortRef.current) {
+      setAiSpeaking(false);
+      console.log("[TTS] Bitdi");
+    }
   };
 
   const loadInterview = async () => {
