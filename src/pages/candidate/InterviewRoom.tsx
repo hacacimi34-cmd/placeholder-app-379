@@ -58,14 +58,21 @@ const InterviewRoom = () => {
 
   const speech = useSpeechRecognition();
 
-  // Səs siyahısını əvvəlcədən yüklə
+  // Səs siyahısını əvvəlcədən yüklə - Türk səslərini prioritet et
   useEffect(() => {
-    if ("speechSynthesis" in window) {
-      window.speechSynthesis.getVoices();
-      window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.getVoices();
-      };
-    }
+    if (!("speechSynthesis" in window)) return;
+    
+    const loadVoices = () => window.speechSynthesis.getVoices();
+    loadVoices();
+    
+    // Brauzerlər səsləri fərqli vaxtda yükləyir
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+    
+    // Chrome bəzən gecikir - polling
+    const interval = setInterval(loadVoices, 500);
+    setTimeout(() => clearInterval(interval), 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Timer
@@ -111,6 +118,11 @@ const InterviewRoom = () => {
       }
       if (speech.isListening) speech.stop();
       if (timerRef.current) clearInterval(timerRef.current);
+      // Danışığı dayandır
+      if ("speechSynthesis" in window) {
+        isSpeakingRef.current = false;
+        window.speechSynthesis.cancel();
+      }
     };
   }, []);
 
@@ -138,66 +150,104 @@ const InterviewRoom = () => {
     setCameraOn(false);
   }, []);
 
+  const speechQueueRef = useRef<string[]>([]);
+  const isSpeakingRef = useRef(false);
+
   const speakText = (text: string, isFemale?: boolean) => {
     if (!("speechSynthesis" in window)) return;
 
-    // Öncəki danışığı dayandır
+    // Hər şeyi dayandır
     window.speechSynthesis.cancel();
+    speechQueueRef.current = [];
+    isSpeakingRef.current = false;
 
-    setAiSpeaking(true);
-
-    const utterance = new SpeechSynthesisUtterance(text);
-
-    // Qadın səsi və ya kişi səsi seç
     const isF = isFemale ?? persona.gender === "female";
     const voices = window.speechSynthesis.getVoices();
 
-    // Azərbaycan səsini tap
-    const azVoices = voices.filter(v => v.lang === 'az-AZ' || v.lang === 'az');
-    const trVoices = voices.filter(v => v.lang === 'tr-TR' || v.lang === 'tr');
-    const ruVoices = voices.filter(v => v.lang === 'ru-RU' || v.lang === 'ru');
+    // SADECE Türk və Azərbaycan səsləri - Rus səsi İSTİFADƏ OLUNMUR
+    const trVoices = voices.filter(v =>
+      v.lang === 'tr-TR' || v.lang === 'tr' ||
+      v.lang === 'az-AZ' || v.lang === 'az'
+    );
 
-    // Qadın səsi üçün adətən female işarəli səsləri tap
-    const findVoice = (list: any[]) => {
+    // Qadın və ya kişi səsini seç
+    const selectVoice = () => {
+      if (trVoices.length === 0) return null;
       if (isF) {
-        const f = list.find(v => v.name.toLowerCase().includes('female')) ||
-                  list.find(v => v.name.toLowerCase().includes('woman')) ||
-                  list.find(v => v.name.toLowerCase().includes('zira')) ||
-                  list.find(v => v.name.toLowerCase().includes('seline'));
-        return f || list[0];
+        return trVoices.find(v => v.name.toLowerCase().includes('female')) ||
+               trVoices.find(v => v.name.toLowerCase().includes('woman')) ||
+               trVoices.find(v => v.name.toLowerCase().includes('zira')) ||
+               trVoices.find(v => v.name.toLowerCase().includes('seline')) ||
+               trVoices.find(v => v.name.toLowerCase().includes('filiz')) ||
+               trVoices[0];
       } else {
-        const m = list.find(v => v.name.toLowerCase().includes('male')) ||
-                  list.find(v => v.name.toLowerCase().includes('man')) ||
-                  list.find(v => v.name.toLowerCase().includes('david')) ||
-                  list.find(v => v.name.toLowerCase().includes('tolga'));
-        return m || list[0];
+        return trVoices.find(v => v.name.toLowerCase().includes('male')) ||
+               trVoices.find(v => v.name.toLowerCase().includes('man')) ||
+               trVoices.find(v => v.name.toLowerCase().includes('tolga')) ||
+               trVoices[0];
       }
     };
+    const bestVoice = selectVoice();
 
-    const azMatch = findVoice(azVoices);
-    const trMatch = findVoice(trVoices);
-    const ruMatch = findVoice(ruVoices);
+    // Mətni cümlələrə böl - sözləri yeməmək üçün
+    const sentences = text
+      .split(/(?<=[.!?])\s+/)
+      .filter((s: string) => s.trim().length > 0);
 
-    if (azMatch) {
-      utterance.voice = azMatch;
-      utterance.lang = azMatch.lang;
-    } else if (trMatch) {
-      utterance.voice = trMatch;
-      utterance.lang = trMatch.lang;
-    } else if (ruMatch) {
-      utterance.voice = ruMatch;
-      utterance.lang = ruMatch.lang;
-    } else {
-      utterance.lang = 'tr-TR';
+    // Çox uzun cümlələri vergüllən böl
+    const chunks: string[] = [];
+    for (const sentence of sentences) {
+      if (sentence.length > 120) {
+        const parts = sentence.split(/(?<=,)\s+/);
+        let current = "";
+        for (const part of parts) {
+          if ((current + part).length > 120) {
+            if (current.trim()) chunks.push(current.trim());
+            current = part;
+          } else {
+            current += (current ? " " : "") + part;
+          }
+        }
+        if (current.trim()) chunks.push(current.trim());
+      } else {
+        chunks.push(sentence.trim());
+      }
     }
 
-    utterance.rate = 0.92;
-    utterance.pitch = isF ? 1.1 : 0.9;
-    utterance.volume = 1;
-    utterance.onend = () => setAiSpeaking(false);
-    utterance.onerror = () => setAiSpeaking(false);
+    speechQueueRef.current = chunks;
+    setAiSpeaking(true);
+    isSpeakingRef.current = true;
 
-    window.speechSynthesis.speak(utterance);
+    const speakNext = () => {
+      if (!isSpeakingRef.current) return;
+
+      const chunk = speechQueueRef.current.shift();
+      if (!chunk) {
+        isSpeakingRef.current = false;
+        setAiSpeaking(false);
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(chunk);
+      if (bestVoice) {
+        utterance.voice = bestVoice;
+        utterance.lang = bestVoice.lang;
+      } else {
+        utterance.lang = 'tr-TR';
+      }
+      utterance.rate = 0.82;
+      utterance.pitch = isF ? 1.05 : 0.88;
+      utterance.volume = 1;
+      utterance.onend = () => setTimeout(speakNext, 200);
+      utterance.onerror = () => {
+        isSpeakingRef.current = false;
+        setAiSpeaking(false);
+      };
+
+      window.speechSynthesis.speak(utterance);
+    };
+
+    speakNext();
   };
 
   const loadInterview = async () => {
