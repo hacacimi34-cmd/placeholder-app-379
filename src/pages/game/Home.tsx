@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { Play, ChevronDown, Star, Award, Flame } from "lucide-react";
+import { Play, ChevronDown, Star, Award, Flame, Swords } from "lucide-react";
 import { useGameProgress } from "@/hooks/useGameProgress";
 
 export default function Home() {
@@ -71,16 +71,25 @@ export default function Home() {
             Onun uşaqlığından başlayaraq əbədi şəhidliyinə qədər olan igidlik yolculuğunu yaşa.
           </p>
 
-          {/* Başla düyməsi */}
-          <button
-            onClick={handleStart}
-            className="group flex items-center gap-3 px-8 sm:px-10 py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-base sm:text-lg shadow-2xl transition-all hover:scale-105 animate-glow"
-          >
-            <Play className="w-5 h-5 fill-black" />
-            {loaded && progress.completedChapters.length > 0
-              ? "Davam Et"
-              : "Oyuna Başla"}
-          </button>
+          {/* Başla düymələri */}
+          <div className="flex flex-col sm:flex-row items-center gap-3">
+            <button
+              onClick={handleStart}
+              className="group flex items-center gap-3 px-8 sm:px-10 py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-base sm:text-lg shadow-2xl transition-all hover:scale-105 animate-glow"
+            >
+              <Play className="w-5 h-5 fill-black" />
+              {loaded && progress.completedChapters.length > 0
+                ? "Davam Et"
+                : "Hekayəni Başlat"}
+            </button>
+            <button
+              onClick={() => navigate("/battle")}
+              className="group flex items-center gap-3 px-8 py-4 rounded-2xl bg-red-500/15 hover:bg-red-500/25 border-2 border-red-500/40 hover:border-red-500/60 text-red-300 font-bold text-base transition-all hover:scale-105"
+            >
+              <Swords className="w-5 h-5" />
+              Döyüş Oyunu
+            </button>
+          </div>
 
           {/* Proqres göstəricisi */}
           {loaded && progress.completedChapters.length > 0 && (

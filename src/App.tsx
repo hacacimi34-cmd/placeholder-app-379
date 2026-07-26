@@ -7,6 +7,7 @@ import Home from "./pages/game/Home";
 import ChapterSelect from "./pages/game/ChapterSelect";
 import ChapterPlay from "./pages/game/ChapterPlay";
 import Memorial from "./pages/game/Memorial";
+import ActionGame from "./pages/game/ActionGame";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -22,6 +23,7 @@ const App = () => (
           <Route path="/map" element={<ChapterSelect />} />
           <Route path="/play/:chapterId" element={<ChapterPlay />} />
           <Route path="/memorial" element={<Memorial />} />
+          <Route path="/battle" element={<ActionGame />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
