@@ -314,7 +314,47 @@ const InterviewRoom = () => {
     return chunks.length > 0 ? chunks : [clean.substring(0, maxLen)];
   };
 
-  // ƏSAS danışıq - Microsoft Edge Neyral (təbii, insana bənzər Türk səsi)
+  // Brauzerin öz səs sistemi (speechSynthesis) — sistem neyral səsləri
+  const speakWithBrowserTTS = (text: string, isFemale: boolean): Promise<boolean> => {
+    return new Promise((resolve) => {
+      if (!("speechSynthesis" in window)) { resolve(false); return; }
+
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+
+      const voices = window.speechSynthesis.getVoices();
+      const trVoices = voices.filter(v => v.lang?.toLowerCase().startsWith("tr") || v.lang?.toLowerCase().startsWith("az"));
+      const neuralVoices = trVoices.filter(v => /natural|neural|online|neyral/i.test(v.name));
+
+      let bestVoice: SpeechSynthesisVoice | undefined;
+      if (neuralVoices.length > 0) {
+        bestVoice = isFemale
+          ? neuralVoices.find(v => /emel|female|kadın|kadin/i.test(v.name)) || neuralVoices[0]
+          : neuralVoices.find(v => /ahmet|male|erkek/i.test(v.name)) || neuralVoices[0];
+      } else if (trVoices.length > 0) {
+        bestVoice = trVoices[0];
+      }
+
+      if (bestVoice) {
+        utterance.voice = bestVoice;
+        console.log(`[TTS-Browser] Səs: ${bestVoice.name} (${bestVoice.lang})`);
+      }
+
+      utterance.lang = "tr-TR";
+      utterance.rate = 0.92;
+      utterance.pitch = 1.0;
+      utterance.volume = 1.0;
+
+      const timeout = setTimeout(() => { window.speechSynthesis.cancel(); resolve(false); }, 30000);
+
+      utterance.onend = () => { clearTimeout(timeout); resolve(true); };
+      utterance.onerror = () => { clearTimeout(timeout); resolve(false); };
+
+      window.speechSynthesis.speak(utterance);
+    });
+  };
+
+  // ƏSAS danışıq — 3 səviyyəli TTS sistemi
   const speakText = async (text: string, isFemale?: boolean) => {
     if (!text || text.trim().length === 0) return;
 
@@ -328,16 +368,16 @@ const InterviewRoom = () => {
     const isF = isFemale ?? persona.gender === "female";
     setAiSpeaking(true);
 
-    // Mətni təmizlə — markdown və AI artifact-ləri sil
+    // Mətni təmizlə
     const cleanText = text
       .replace(/\*\*/g, "")
       .replace(/[*#_`]/g, "")
       .replace(/\s+/g, " ")
       .trim();
 
-    // ═══ 1. MICROSOFT EDGE NEYRAL — təbii Türk səsi, nəfəs fasilələri ilə ═══
+    // ═══ 1. MICROSOFT EDGE NEYRAL — ən təbii səs (WebSocket) ═══
     const chunks = splitIntoChunks(cleanText);
-    console.log(`[TTS] Edge Neyral: ${chunks.length} hissə, səs=${isF ? "Emel" : "Ahmet"}`);
+    console.log(`[TTS] 1) Edge Neyral: ${chunks.length} hissə, səs=${isF ? "Emel" : "Ahmet"}`);
 
     try {
       const blobs = await Promise.all(
@@ -360,9 +400,21 @@ const InterviewRoom = () => {
       console.warn("[TTS] Edge Neyral uğursuz:", err);
     }
 
-    // ═══ 2. Fallback: Edge function (Google TTS) ═══
+    // ═══ 2. BRAUZER SƏS SİSTEMİ — sistem neyral səsləri (etibarlı) ═══
     if (!ttsAbortRef.current) {
-      console.log("[TTS] Edge function fallback...");
+      console.log("[TTS] 2) Brauzer səsi (speechSynthesis)...");
+      const browserResult = await speakWithBrowserTTS(cleanText.substring(0, 3000), isF);
+      if (browserResult && !ttsAbortRef.current) {
+        console.log("[TTS] Brauzer səsi oxunur! ✅");
+        setAiSpeaking(false);
+        return;
+      }
+      console.warn("[TTS] Brauzer səsi uğursuz");
+    }
+
+    // ═══ 3. SON FALLBACK: Edge function (Google TTS) ═══
+    if (!ttsAbortRef.current) {
+      console.log("[TTS] 3) Edge function (Google)...");
       const ttsVoice = isF ? "Emel" : "Ahmet";
       try {
         const resp = await fetch("/api/v2/function/tts-service", {
