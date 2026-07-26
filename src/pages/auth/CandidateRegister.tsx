@@ -129,12 +129,16 @@ const CandidateRegister = () => {
 
     } catch (err: any) {
       console.error("Registration error:", err);
-      if (err.message?.includes("email_exists")) {
-        setError("Bu e-poçt ünvanı artıq qeydiyyatdan keçib");
-      } else if (err.message?.includes("insufficient_password_complexity")) {
-        setError("Şifrə ən az 8 simvol olmalıdır");
+      const errMsg = err?.message || err?.error || String(err);
+      if (errMsg.includes("email_exists") || errMsg.includes("already")) {
+        setError("Bu e-poçt ünvanı artıq qeydiyyatdan keçib. Zəhmət olmasa daxil olun.");
+      } else if (errMsg.includes("insufficient_password") || errMsg.includes("password")) {
+        setError("Şifrə ən az 8 simvol olmalıdır və e-poçt ünvanı ola bilməz.");
+      } else if (errMsg.includes("invalid_email")) {
+        setError("Düzgün e-poçt ünvanı daxil edin.");
       } else {
-        setError("Qeydiyyat zamanı xəta baş verdi. Yenidən cəhd edin.");
+        console.error("Full error:", JSON.stringify(err));
+        setError("Qeydiyyat zamanı xəta: " + errMsg);
       }
     } finally {
       setLoading(false);
@@ -142,9 +146,15 @@ const CandidateRegister = () => {
   };
 
   const nextStep = () => {
-    if (step === 1 && (!formData.email || !formData.password || !formData.firstName || !formData.lastName)) {
-      toast.error("Zəhmət olmasa bütün məcburi xanaları doldurun");
-      return;
+    if (step === 1) {
+      if (!formData.email || !formData.password || !formData.firstName || !formData.lastName) {
+        toast.error("Zəhmət olmasa bütün məcburi xanaları doldurun");
+        return;
+      }
+      if (formData.password.length < 8) {
+        toast.error("Şifrə ən az 8 simvol olmalıdır");
+        return;
+      }
     }
     setStep(step + 1);
   };
@@ -258,6 +268,9 @@ const CandidateRegister = () => {
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      Minimum 8 simvol. Ümumi şifrələr qəbul olunmur.
+                    </p>
                   </div>
 
                   <Button type="button" onClick={nextStep} className="w-full">
