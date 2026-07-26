@@ -82,10 +82,10 @@ const InterviewRoom = () => {
   useEffect(() => {
     if (phase === "feedback" && feedback) {
       const qualityReactions: Record<string, string> = {
-        excellent: "Çox əla cavab verdi!",
-        good: "Yaxşı cavab verdiniz, təşəkkür edirəm.",
-        satisfactory: "Cavabınız kafi səviyyədədir.",
-        needs_improvement: "Bu cavabı bir az daha inkişaf etdirə bilərdiniz.",
+        excellent: "Çox əla cavab verdiniz. Həqiqətən təsir etdiniz.",
+        good: "Yaxşı cavab idi. Təşəkkür edirəm.",
+        satisfactory: "Cavabınız kafi səviyyədədir. Davam edək.",
+        needs_improvement: "Bu mövzunu bir az daha geniş izah edə bilərdiniz. Amma yaxşıdır.",
       };
       const reaction = qualityReactions[feedback.quality] || "Cavabınız qeydə alındı.";
       const fullFeedback = `${reaction} ${feedback.feedback || ""}`;
@@ -143,28 +143,45 @@ const InterviewRoom = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const ttsAbortRef = useRef(false);
 
-  // Mətni hissələrə böl (TTS API limiti üçün)
-  const splitIntoChunks = (text: string, maxLen = 400): string[] => {
-    const sentences = text.split(/(?<=[.!?])\s+/).filter((s: string) => s.trim());
+  // Mətni kiçik hissələrə böl - təbii danışıq üçün qısa cümlələr
+  const splitIntoChunks = (text: string, maxLen = 140): string[] => {
+    // Mətni TTS üçün təmizlə
+    const clean = text
+      .replace(/\*\*/g, "")
+      .replace(/[*#_`]/g, "")
+      .replace(/\.{2,}/g, ".")
+      .replace(/\s+/g, " ")
+      .trim();
+
+    // Nöqtə, sual, nida ilə cümlələrə böl
+    const sentences = clean.split(/(?<=[.!?])\s+/).filter((s: string) => s.trim());
     const chunks: string[] = [];
     let current = "";
+
     for (const sentence of sentences) {
-      if ((current + " " + sentence).length > maxLen) {
-        if (current.trim()) chunks.push(current.trim());
-        if (sentence.length > maxLen) {
-          const parts = sentence.split(/(?<=,)\s+/);
-          current = "";
-          for (const part of parts) {
-            if ((current + " " + part).length > maxLen) {
-              if (current.trim()) chunks.push(current.trim());
-              current = part;
-            } else { current += (current ? " " : "") + part; }
+      // Vergüllə də böl - qısa hissələr daha təbii səslənir
+      if (sentence.length > maxLen) {
+        const parts = sentence.split(/(?<=[,;:])\s+/);
+        current = "";
+        for (const part of parts) {
+          if ((current + " " + part).length > maxLen) {
+            if (current.trim()) chunks.push(current.trim());
+            current = part.trim();
+          } else {
+            current += (current ? " " : "") + part;
           }
-        } else { current = sentence; }
-      } else { current += (current ? " " : "") + sentence; }
+        }
+        if (current.trim()) chunks.push(current.trim());
+        current = "";
+      } else if ((current + " " + sentence).length > maxLen) {
+        if (current.trim()) chunks.push(current.trim());
+        current = sentence.trim();
+      } else {
+        current += (current ? " " : "") + sentence;
+      }
     }
     if (current.trim()) chunks.push(current.trim());
-    return chunks.length > 0 ? chunks : [text];
+    return chunks.length > 0 ? chunks : [clean];
   };
 
   // Yüksək keyfiyyətli Türk səsi - 3 qat yedək sistem
@@ -182,6 +199,7 @@ const InterviewRoom = () => {
           if (blob.size > 0) {
             const audioUrl = URL.createObjectURL(blob);
             const audio = new Audio(audioUrl);
+            audio.playbackRate = 0.92; // Bir az yavaş - təbii danışıq
             audioRef.current = audio;
             audio.onended = () => { URL.revokeObjectURL(audioUrl); resolve(); };
             audio.onerror = () => { URL.revokeObjectURL(audioUrl); reject(new Error("Edge TTS play failed")); };
@@ -198,6 +216,7 @@ const InterviewRoom = () => {
         const seVoice = voice === "Burak" ? "Burak" : "Filiz";
         const url = `https://api.streamelements.com/kappa/v2/speech?voice=${seVoice}&text=${encodeURIComponent(text.substring(0, 500))}`;
         const audio = new Audio(url);
+        audio.playbackRate = 0.92; // Bir az yavaş - təbii danışıq
         audioRef.current = audio;
         audio.onended = () => resolve();
         audio.onerror = () => reject(new Error("StreamElements failed"));
@@ -247,8 +266,12 @@ const InterviewRoom = () => {
       try {
         console.log(`[TTS] Hissə ${i+1}/${chunks.length}: ${chunks[i].substring(0, 50)}...`);
         await playTTS(chunks[i], ttsVoice);
+        // Hissələr arası təbii fasilə - insan kimi nəfəs alma
+        if (i < chunks.length - 1 && !ttsAbortRef.current) {
+          await new Promise(r => setTimeout(r, 400));
+        }
       } catch (err) {
-        console.warn(`[TTS] StreamElements uğursuz, brauzer səsinə keçid:`, err);
+        console.warn(`[TTS] TTS uğursuz, brauzer səsinə keçid:`, err);
         await speakWithBrowser(chunks[i], isF);
       }
     }
@@ -310,13 +333,13 @@ const InterviewRoom = () => {
   };
 
   const getFallbackQuestions = () => [
-    { id: 0, type: "intro", difficulty: "easy", question: "Özünüzü təqdim edin. Təhsiliniz, təcrübəniz və peşəkar arxa planınız haqqında danışın.", expected_keywords: ["təcrübə", "experience", "təhsil", "education"], time_limit: 120 },
+    { id: 0, type: "intro", difficulty: "easy", question: "Zəhmət olmasa, özünüzü təqdim edin. Təhsiliniz, təcrübəniz və peşəkar arxa planınız haqqında qısaca danışın.", expected_keywords: ["təcrübə", "experience", "təhsil", "education"], time_limit: 120 },
     { id: 1, type: "technical", difficulty: "medium", question: "React və Node.js ilə bağlı təcrübəniz haqqında danışın. Hansı layihələrdə istifadə etmisiniz?", expected_keywords: ["react", "component", "node", "server", "api"], time_limit: 180 },
-    { id: 2, type: "experience", difficulty: "medium", question: "Ən çətin texniki probleminizi necə həll etdiniz? Detallı danışın.", expected_keywords: ["problem", "həll", "solve", "debug", "layihə"], time_limit: 180 },
-    { id: 3, type: "behavioral", difficulty: "medium", question: "Komandada münaqişə ilə qarşılaşdığınız zaman onu necə həll etdiniz?", expected_keywords: ["komanda", "team", "həll", "resolve", "ünsiyyət"], time_limit: 120 },
-    { id: 4, type: "behavioral", difficulty: "easy", question: "Bu vəzifə niyə sizi maraqlandırır və özünüzü necə uyğun görürsünüz?", expected_keywords: ["vacansiya", "position", "bacarıq", "skill", "şirkət"], time_limit: 120 },
-    { id: 5, type: "self_awareness", difficulty: "medium", question: "Əsas güclü tərəfləriniz və inkişaf etdirməli olduğunuz sahələr hansılardır?", expected_keywords: ["güclü", "strong", "zəif", "inkişaf", "improve"], time_limit: 120 },
-    { id: 6, type: "closing", difficulty: "easy", question: "Vəzifə və ya şirkət haqqında bizə sualınız var?", expected_keywords: ["sual", "question", "maraq"], time_limit: 90 },
+    { id: 2, type: "experience", difficulty: "medium", question: "Ən çətin texniki probleminizi necə həll etdiniz? Bu prosesi bir az detallı izah edin.", expected_keywords: ["problem", "həll", "solve", "debug", "layihə"], time_limit: 180 },
+    { id: 3, type: "behavioral", difficulty: "medium", question: "Komandada hər hansı münaqişə ilə qarşılaşdığınız zaman, onu necə həll etdiniz?", expected_keywords: ["komanda", "team", "həll", "resolve", "ünsiyyət"], time_limit: 120 },
+    { id: 4, type: "behavioral", difficulty: "easy", question: "Bu vəzifə niyə sizi maraqlandırır? Özünüzü bu vəzifəyə necə uyğun görürsünüz?", expected_keywords: ["vacansiya", "position", "bacarıq", "skill", "şirkət"], time_limit: 120 },
+    { id: 5, type: "self_awareness", difficulty: "medium", question: "Əsas güclü tərəfləriniz hansılardır? Və inkişaf etdirməli olduğunuz sahələr?", expected_keywords: ["güclü", "strong", "zəif", "inkişaf", "improve"], time_limit: 120 },
+    { id: 6, type: "closing", difficulty: "easy", question: "Vəzifə və ya şirkət haqqında bizə sualınız var? Sizin üçün hansı məqamlar önəmlidir?", expected_keywords: ["sual", "question", "maraq"], time_limit: 90 },
   ];
 
   const startInterview = () => {
@@ -326,9 +349,9 @@ const InterviewRoom = () => {
     setAnswers([]);
     setInterviewSeconds(0);
 
-    // Insan kimi salamlama + ilk sual
-    const greeting = `Salam! Mən adım ${persona.name}. ${persona.title} kimi bu gün ${vacancy?.title || "vakansiya"} vəzifəsi üçün sizinlə müsahibə aparacağam. Rahat olun, sadəcə özünüzü ifadə edin. İlk sualım: ${questions[0]?.question || ""}`;
-    setTimeout(() => speakText(greeting), 500);
+    // Insan kimi təbii salamlama - qısa cümlələrlə təbii fasilələr
+    const greeting = `Salam. Xoş gəlmisiniz. Mənim adım ${persona.name}. Bu gün, sizinlə tanış olmaq, mənim üçün çox xoşdur. ${vacancy?.title || "Vakansiya"} vəzifəsi üçün, qısa bir müsahibə aparacağıq. Zəhmət olmasa, rahat olun. Özünüzü, tam azad şəkildə ifadə edin. İlk sualım belədir. ${questions[0]?.question || ""}`;
+    setTimeout(() => speakText(greeting), 600);
   };
 
   const toggleListening = () => {
@@ -412,13 +435,14 @@ const InterviewRoom = () => {
       setCurrentQ(nextIdx);
       setPhase("interview");
 
-      // Insan kimi keçid ifadələri
+      // Insan kimi təbii keçid ifadələri
       const transitions = [
-        "Təşəkkür edirəm. Növbəti sual:",
-        "Çox yaxşı. İndi isə maraqlı bir sual:",
-        "Anlaşıldı. Gəlin növbəti mövzuya keçək:",
-        "Təşəkkürlər. İndi bu barədə danışın:",
-        "Yaxşı cavab. Növbəti sualım belədir:",
+        "Təşəkkür edirəm. İndi isə, növbəti sualı verim.",
+        "Çox yaxşı. Gəlin, bir az da dərindən danışaq.",
+        "Anlaşılan. Növbəti mövzuya keçək bilərik.",
+        "Təşəkkürlər. İndi isə, bu barədə danışın.",
+        "Yaxşı cavab idi. Növbəti sualım belədir.",
+        "Əla. İndi isə, fərqli bir sualım var.",
       ];
       const transition = transitions[Math.floor(Math.random() * transitions.length)];
       const fullText = `${transition} ${questions[nextIdx]?.question || ""}`;
