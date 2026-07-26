@@ -43,6 +43,16 @@ const InterviewRoom = () => {
 
   const speech = useSpeechRecognition();
 
+  // Səs siyahısını əvvəlcədən yüklə
+  useEffect(() => {
+    if ("speechSynthesis" in window) {
+      window.speechSynthesis.getVoices();
+      window.speechSynthesis.onvoiceschanged = () => {
+        window.speechSynthesis.getVoices();
+      };
+    }
+  }, []);
+
   // Timer
   useEffect(() => {
     if (phase === "interview") {
@@ -99,15 +109,40 @@ const InterviewRoom = () => {
   }, []);
 
   const speakText = (text: string) => {
-    if ("speechSynthesis" in window) {
-      setAiSpeaking(true);
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "az-AZ";
-      utterance.rate = 0.95;
-      utterance.onend = () => setAiSpeaking(false);
-      utterance.onerror = () => setAiSpeaking(false);
-      window.speechSynthesis.speak(utterance);
+    if (!("speechSynthesis" in window)) return;
+
+    // Öncəki danışığı dayandır
+    window.speechSynthesis.cancel();
+
+    setAiSpeaking(true);
+
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    // Azərbaycan səsini tap, yoxsa Türk, yoxsa Rus
+    const voices = window.speechSynthesis.getVoices();
+    const azVoice = voices.find(v => v.lang === 'az-AZ' || v.lang === 'az');
+    const trVoice = voices.find(v => v.lang === 'tr-TR' || v.lang === 'tr');
+    const ruVoice = voices.find(v => v.lang === 'ru-RU' || v.lang === 'ru');
+
+    if (azVoice) {
+      utterance.voice = azVoice;
+      utterance.lang = azVoice.lang;
+    } else if (trVoice) {
+      utterance.voice = trVoice;
+      utterance.lang = trVoice.lang;
+    } else if (ruVoice) {
+      utterance.voice = ruVoice;
+      utterance.lang = ruVoice.lang;
+    } else {
+      utterance.lang = 'tr-TR';
     }
+
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.onend = () => setAiSpeaking(false);
+    utterance.onerror = () => setAiSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
   };
 
   const loadInterview = async () => {

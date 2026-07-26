@@ -13,6 +13,7 @@ interface SpeechRecognitionHook {
 
 const LANG_MAP: Record<string, string> = {
   az: "az-AZ",
+  tr: "tr-TR",
   en: "en-US",
   ru: "ru-RU",
 };
