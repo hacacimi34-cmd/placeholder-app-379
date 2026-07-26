@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Mail, Lock, Phone, MapPin, Linkedin, Globe, ArrowLeft, Eye, EyeOff, Upload } from "lucide-react";
+import { User, Mail, Lock, Phone, MapPin, Linkedin, Globe, ArrowLeft, Eye, EyeOff, Upload, Shuffle } from "lucide-react";
 import auth from "@/lib/shared/kliv-auth.js";
 import db from "@/lib/shared/kliv-database.js";
 import { toast } from "sonner";
@@ -48,6 +48,31 @@ const CandidateRegister = () => {
     employmentType: ""
   });
 
+  const generatePassword = () => {
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*";
+    let pw = "";
+    for (let i = 0; i < 14; i++) {
+      pw += chars[Math.floor(Math.random() * chars.length)];
+    }
+    setFormData({ ...formData, password: pw });
+    setShowPassword(true);
+    toast.success("Güclü şifrə yaradıldı: " + pw);
+  };
+
+  const getPasswordStrength = () => {
+    const pw = formData.password;
+    if (!pw) return { score: 0, label: "", color: "" };
+    let score = 0;
+    if (pw.length >= 8) score++;
+    if (pw.length >= 12) score++;
+    if (/[A-Z]/.test(pw) && /[a-z]/.test(pw)) score++;
+    if (/[0-9]/.test(pw)) score++;
+    if (/[^A-Za-z0-9]/.test(pw)) score++;
+    const labels = ["Çox zəif", "Zəif", "Orta", "Yaxşı", "Güclü", "Çox güclü"];
+    const colors = ["bg-red-500", "bg-red-500", "bg-orange-500", "bg-yellow-500", "bg-green-500", "bg-green-600"];
+    return { score, label: labels[score], color: colors[score] };
+  };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -75,12 +100,35 @@ const CandidateRegister = () => {
     setLoading(true);
 
     try {
-      // Step 1: Create user account
-      const user = await auth.signUp(
-        formData.email,
-        formData.password,
-        `${formData.firstName} ${formData.lastName}`
-      );
+      // Step 1: Create user account via direct API for full error control
+      const signUpResponse = await fetch('/api/v2/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          name: `${formData.firstName} ${formData.lastName}`
+        })
+      });
+
+      const signUpData = await signUpResponse.json();
+
+      if (!signUpResponse.ok) {
+        const errorCode = signUpData.message || signUpData.error || 'unknown_error';
+        console.error("Signup API error:", signUpResponse.status, errorCode, JSON.stringify(signUpData));
+        if (errorCode.includes("email_exists")) {
+          throw new Error("Bu e-poçt artıq qeydiyyatlıdır. Başqa e-poçt istifadə edin.");
+        } else if (errorCode.includes("insufficient_password") || errorCode.includes("password")) {
+          throw new Error("Şifrə çox zəifdir. Minimum 8 simvol, böyük/kiçik hərf və rəqəm istifadə edin. Ümumi şifrələr (password123 və s.) qəbul olunmur.");
+        } else if (errorCode.includes("invalid_email")) {
+          throw new Error("Düzgün e-poçt ünvanı daxil edin.");
+        } else {
+          throw new Error("Qeydiyyat xətası: " + errorCode);
+        }
+      }
+
+      const user = signUpData.user;
+      auth.user = user;
 
       // Step 2: Upload CV if provided
       let cvPath = null;
@@ -129,17 +177,7 @@ const CandidateRegister = () => {
 
     } catch (err: any) {
       console.error("Registration error:", err);
-      const errMsg = err?.message || err?.error || String(err);
-      if (errMsg.includes("email_exists") || errMsg.includes("already")) {
-        setError("Bu e-poçt ünvanı artıq qeydiyyatdan keçib. Zəhmət olmasa daxil olun.");
-      } else if (errMsg.includes("insufficient_password") || errMsg.includes("password")) {
-        setError("Şifrə ən az 8 simvol olmalıdır və e-poçt ünvanı ola bilməz.");
-      } else if (errMsg.includes("invalid_email")) {
-        setError("Düzgün e-poçt ünvanı daxil edin.");
-      } else {
-        console.error("Full error:", JSON.stringify(err));
-        setError("Qeydiyyat zamanı xəta: " + errMsg);
-      }
+      setError(err?.message || "Qeydiyyat zamanı xəta baş verdi");
     } finally {
       setLoading(false);
     }
@@ -268,9 +306,37 @@ const CandidateRegister = () => {
                         {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                       </button>
                     </div>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      Minimum 8 simvol. Ümumi şifrələr qəbul olunmur.
-                    </p>
+                    {/* Password strength meter */}
+                    {formData.password && (
+                      <div className="space-y-1">
+                        <div className="flex gap-1">
+                          {[1,2,3,4,5].map((i) => (
+                            <div
+                              key={i}
+                              className={`h-1.5 flex-1 rounded-full transition-colors ${i <= getPasswordStrength().score ? getPasswordStrength().color : "bg-slate-200 dark:bg-slate-700"}`}
+                            />
+                          ))}
+                        </div>
+                        <p className={`text-xs font-medium ${getPasswordStrength().score >= 4 ? "text-green-600 dark:text-green-400" : getPasswordStrength().score >= 2 ? "text-orange-600 dark:text-orange-400" : "text-red-600 dark:text-red-400"}`}>
+                          {getPasswordStrength().label}
+                        </p>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Min 8 simvol, böyük/kiçik hərf, rəqəm. Ümumi şifrələr qəbul olunmur!
+                      </p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={generatePassword}
+                        className="shrink-0 text-xs h-7 px-2"
+                      >
+                        <Shuffle className="w-3 h-3 mr-1" />
+                        Yarat
+                      </Button>
+                    </div>
                   </div>
 
                   <Button type="button" onClick={nextStep} className="w-full">
