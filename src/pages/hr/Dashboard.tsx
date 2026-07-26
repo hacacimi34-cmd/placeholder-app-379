@@ -70,19 +70,21 @@ const Dashboard = () => {
     }
   });
 
-  // Fetch upcoming interviews
+  // Fetch all scheduled interviews
   const { data: interviews = [], isLoading: interviewsLoading } = useQuery({
     queryKey: ["interviews"],
     queryFn: async () => {
-      const now = Math.floor(Date.now() / 1000);
       const result = await db.query("interviews", {
-        scheduled_date: `gte.${now}`,
         status: "eq.scheduled",
-        order: "scheduled_date.asc"
+        order: "scheduled_date.desc"
       });
       return result;
     }
   });
+
+  // Quick lookup maps for candidate and vacancy names
+  const candidateMap = new Map(candidates.map((c: any) => [c._row_id, c]));
+  const vacancyMap = new Map(vacancies.map((v: any) => [v._row_id, v]));
 
   // Stats calculations
   const stats = [
@@ -152,7 +154,9 @@ const Dashboard = () => {
       case "hired": return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
       case "under_review": return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
       case "closed": return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
-      default: return "bg-gray-100 text-gray-800";
+      case "scheduled": return "bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-200";
+      case "completed": return "bg-teal-100 text-teal-800 dark:bg-teal-900 dark:text-teal-200";
+      default: return "bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200";
     }
   };
 
@@ -165,6 +169,8 @@ const Dashboard = () => {
       case "hired": return "Qəbul edilib";
       case "under_review": return "Baxışda";
       case "closed": return "Bağlı";
+      case "scheduled": return "Təyin edilib";
+      case "completed": return "Bitirilib";
       default: return status;
     }
   };
@@ -498,52 +504,76 @@ const Dashboard = () => {
                 <CardContent className="py-12 text-center">
                   <Video className="w-12 h-12 mx-auto mb-4 text-slate-400" />
                   <p className="text-slate-600 dark:text-slate-400 mb-4">Təyin edilmiş müsahibə yoxdur</p>
-                  <Button className="bg-gradient-to-r from-blue-600 to-indigo-600">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Yeni Müsahibə Təyin Et
-                  </Button>
+                  <p className="text-sm text-slate-500 dark:text-slate-500">Müraciətlər bölməsindən namizəd seçib müsahibə təyin edə bilərsiniz</p>
                 </CardContent>
               </Card>
             ) : (
               <div className="grid gap-4">
-                {interviews.map((interview) => (
-                  <Card key={interview._row_id} className="border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur">
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Calendar className="w-5 h-5 text-blue-600" />
-                            <h3 className="font-semibold text-blue-900 dark:text-white">
-                              {new Date(interview.scheduled_date * 1000).toLocaleDateString('az-AZ')} - {interview.scheduled_time}
-                            </h3>
-                            <Badge className={getStatusColor(interview.status)}>
-                              {getStatusLabel(interview.status)}
-                            </Badge>
+                {interviews.map((interview) => {
+                  const cand = candidateMap.get(interview.candidate_id);
+                  const vac = vacancyMap.get(interview.vacancy_id);
+                  return (
+                    <Card key={interview._row_id} className="border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur">
+                      <CardContent className="p-6">
+                        <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+                          <div className="flex items-start gap-4 flex-1">
+                            <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-indigo-500 rounded-lg flex items-center justify-center shrink-0">
+                              <Video className="w-6 h-6 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1 flex-wrap">
+                                <h3 className="font-semibold text-blue-900 dark:text-white">
+                                  {cand ? `${cand.first_name} ${cand.last_name}` : "Namizəd"}
+                                </h3>
+                                <Badge className={getStatusColor(interview.status)}>
+                                  {getStatusLabel(interview.status)}
+                                </Badge>
+                              </div>
+                              <p className="text-sm text-slate-600 dark:text-slate-400 mb-2">
+                                <Briefcase className="w-3 h-3 inline mr-1" />
+                                {vac?.title || "Vakansiya"}
+                              </p>
+                              <div className="flex flex-wrap gap-3 text-sm text-slate-600 dark:text-slate-400">
+                                <span className="flex items-center gap-1">
+                                  <Calendar className="w-4 h-4 text-blue-600" />
+                                  {new Date(interview.scheduled_date * 1000).toLocaleDateString('az-AZ')}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-4 h-4 text-blue-600" />
+                                  {interview.scheduled_time}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <Clock className="w-4 h-4 text-purple-600" />
+                                  {interview.duration} dəqiqə
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          <p className="text-sm text-slate-600 dark:text-slate-400">
-                            <Clock className="w-4 h-4 inline mr-1" />
-                            Müddət: {interview.duration} dəqiqə
-                          </p>
-                          {interview.meeting_link && (
-                            <a 
-                              href={interview.meeting_link} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="text-sm text-blue-600 hover:underline flex items-center gap-1 mt-2"
+                          <div className="flex gap-2 flex-wrap">
+                            {interview.meeting_link && (
+                              <Button
+                                size="sm"
+                                className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
+                                onClick={() => window.open(interview.meeting_link, '_blank')}
+                              >
+                                <Video className="w-4 h-4 mr-1" />
+                                Konfransa Başla
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => navigate(`/interview/${interview._row_id}`)}
                             >
-                              <Video className="w-4 h-4" />
-                              Video konfrans linki
-                            </a>
-                          )}
+                              <Video className="w-4 h-4 mr-1" />
+                              AI Müsahibə
+                            </Button>
+                          </div>
                         </div>
-                        <Button size="sm" variant="outline">
-                          <Edit className="w-4 h-4 mr-1" />
-                          Redaktə et
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </TabsContent>
