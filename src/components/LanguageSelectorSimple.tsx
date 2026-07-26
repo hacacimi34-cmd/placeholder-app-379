@@ -18,7 +18,7 @@ export const LanguageSelectorSimple = () => {
           variant={language === lang.code ? "default" : "ghost"}
           size="sm"
           onClick={() => setLanguage(lang.code)}
-          className="min-w-[60px] gap-1"
+          className={`min-w-[60px] gap-1 ${language === lang.code ? "" : "text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-300"}`}
         >
           <span>{lang.flag}</span>
           <span className="text-xs font-semibold">{lang.name}</span>
