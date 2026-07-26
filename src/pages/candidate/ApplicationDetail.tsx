@@ -138,9 +138,9 @@ const ApplicationDetail = () => {
   };
 
   const getScoreColor = (score: number) => {
-    if (score >= 80) return "text-green-600";
-    if (score >= 60) return "text-yellow-600";
-    return "text-red-600";
+    if (score >= 80) return "text-green-600 dark:text-green-400";
+    if (score >= 60) return "text-yellow-600 dark:text-yellow-400";
+    return "text-red-600 dark:text-red-400";
   };
 
   if (loading) {
@@ -458,7 +458,7 @@ const ApplicationDetail = () => {
               <div className="flex items-start gap-3">
                 <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-sanalyze900 dark:text-white">
+                  <p className="text-sm font-medium text-blue-900 dark:text-white">
                     {t('cvAnalysis') || 'CV Təhlili'}
                   </p>
                   <p className="text-sm text-slate-600 dark:text-slate-400">

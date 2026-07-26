@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { 
   Video, Calendar, Clock, ArrowLeft, CheckCircle2, AlertCircle,
-  Download, Mail, Phone, MapPin, Info, Play
+  Download, Mail, Phone, MapPin, Info, Play, BrainCircuit
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
