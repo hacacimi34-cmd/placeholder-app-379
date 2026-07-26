@@ -162,47 +162,22 @@ const InterviewRoom = () => {
     if (!("speechSynthesis" in window)) return null;
     const voices = window.speechSynthesis.getVoices();
     if (!voices || voices.length === 0) return null;
-
-    // Türk və Azərbaycan səsləri
     const trVoices = voices.filter(v =>
       v.lang?.startsWith("tr") || v.lang?.startsWith("az")
     );
-
-    // Neyral/təbii səsləri tap (Microsoft Natural, Google, və s.)
     const neural = trVoices.filter(v =>
       /natural|neural|online|premium|wavenet/i.test(v.name)
     );
-
     const pool = neural.length > 0 ? neural : trVoices;
     if (pool.length === 0) return null;
-
-    console.log(`[TTS] ${pool.length} səs tapıldı:`, pool.map(v => v.name));
-
-    // Cinsiyyətə uyğun səs seç
     if (isF) {
-      return pool.find(v => /emel|female|kadın|zira|filiz|seline|woman/i.test(v.name)) || pool[0];
-    } else {
-      return pool.find(v => /ahmet|male|erkek|tolga|burak|man/i.test(v.name)) || pool[0];
+      return pool.find(v => /emel|female|kadın|zira|filiz/i.test(v.name)) || pool[0];
     }
+    return pool.find(v => /ahmet|male|erkek|tolga|burak/i.test(v.name)) || pool[0];
   };
 
-  // Brauzer neyral səsi ilə danış - ƏN YÜKSƏK keyfiyyət
-  const speakWithNeural = (text: string, voice: SpeechSynthesisVoice): Promise<void> => {
-    return new Promise((resolve) => {
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.voice = voice;
-      utterance.lang = voice.lang;
-      utterance.rate = 0.95;
-      utterance.pitch = voice.name.includes("Emel") || voice.name.includes("female") ? 1.05 : 0.95;
-      utterance.volume = 1;
-      utterance.onend = () => resolve();
-      utterance.onerror = () => resolve();
-      window.speechSynthesis.speak(utterance);
-    });
-  };
-
-  // Mətni hissələrə böl
-  const splitIntoChunks = (text: string, maxLen = 200): string[] => {
+  // Mətni cümlələrə böl (Google TTS limiti = 200 simvol)
+  const splitIntoChunks = (text: string, maxLen = 195): string[] => {
     const clean = text
       .replace(/[*#_`]/g, "")
       .replace(/\.{2,}/g, ".")
@@ -229,114 +204,121 @@ const InterviewRoom = () => {
       } else { current += (current ? " " : "") + sentence; }
     }
     if (current.trim()) chunks.push(current.trim());
-    return chunks.length > 0 ? chunks : [clean];
+    return chunks.length > 0 ? chunks : [clean.substring(0, maxLen)];
   };
 
-  // Edge function TTS (Google Translate neyral səsi)
-  const playTTS = (text: string, voice: string): Promise<void> => {
-    return new Promise(async (resolve, reject) => {
-      try {
-        const resp = await fetch("/api/v2/function/tts-service", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text, voice }),
-        });
-        if (resp.ok) {
-          const blob = await resp.blob();
-          if (blob.size > 0) {
-            const audioUrl = URL.createObjectURL(blob);
-            const audio = new Audio(audioUrl);
-            audioRef.current = audio;
-            audio.onended = () => { URL.revokeObjectURL(audioUrl); resolve(); };
-            audio.onerror = () => { URL.revokeObjectURL(audioUrl); reject(new Error("Play failed")); };
-            await audio.play();
-            return;
+  // Bütün hissələri PARALEL yüklə və BİR səs kimi birləşdir
+  const fetchCombinedAudio = async (chunks: string[], voice: string): Promise<Blob> => {
+    console.log(`[TTS] ${chunks.length} hissə paralel yüklənir...`);
+    const blobs = await Promise.all(
+      chunks.map(async (chunk, i) => {
+        try {
+          const resp = await fetch("/api/v2/function/tts-service", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: chunk, voice }),
+          });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            console.log(`[TTS] Hissə ${i+1}/${chunks.length}: ${blob.size} bytes`);
+            return blob;
           }
+        } catch (e) {
+          console.warn(`[TTS] Hissə ${i+1} uğursuz:`, e);
         }
-      } catch (e) {
-        console.warn("[TTS] Edge function failed:", e);
-      }
-
-      // StreamElements fallback
-      try {
-        const seVoice = voice === "Ahmet" ? "Burak" : "Filiz";
-        const url = `https://api.streamelements.com/kappa/v2/speech?voice=${seVoice}&text=${encodeURIComponent(text.substring(0, 500))}`;
-        const audio = new Audio(url);
-        audioRef.current = audio;
-        audio.onended = () => resolve();
-        audio.onerror = () => reject(new Error("SE failed"));
-        await audio.play();
-        return;
-      } catch (e) {
-        console.warn("[TTS] SE failed:", e);
-      }
-      reject(new Error("All TTS failed"));
-    });
+        return null;
+      })
+    );
+    const validBlobs = blobs.filter((b): b is Blob => b !== null && b.size > 100);
+    if (validBlobs.length === 0) throw new Error("Səs alınmadı");
+    // Bütün blob-ları TEK audio faylına birləşdir - fasiləsiz oxuma
+    return new Blob(validBlobs, { type: "audio/mpeg" });
   };
 
-  // Web Speech API son çarə
-  const speakWithBrowser = (text: string, isF: boolean): Promise<void> => {
+  // Brauzer neyral səsi
+  const speakWithNeural = (text: string, voice: SpeechSynthesisVoice): Promise<void> => {
     return new Promise((resolve) => {
-      if (!("speechSynthesis" in window)) { resolve(); return; }
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = "tr-TR";
-      utterance.rate = 0.9;
-      utterance.pitch = isF ? 1.05 : 0.9;
-      utterance.onend = () => resolve();
-      utterance.onerror = () => resolve();
-      window.speechSynthesis.speak(utterance);
+      const u = new SpeechSynthesisUtterance(text);
+      u.voice = voice;
+      u.lang = voice.lang;
+      u.rate = 0.95;
+      u.volume = 1;
+      u.onend = () => resolve();
+      u.onerror = () => resolve();
+      window.speechSynthesis.speak(u);
     });
   };
 
-  // ƏSAS danışıq funksiyası - əvvəlcə brauzer neyral səsi, sonra edge function
+  // ƏSAS danışıq - fasiləsiz təbii səs
   const speakText = async (text: string, isFemale?: boolean) => {
     if (!text || text.trim().length === 0) return;
 
-    // Hər şeyi dayandır
     ttsAbortRef.current = true;
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null; }
     if ("speechSynthesis" in window) window.speechSynthesis.cancel();
-    await new Promise(r => setTimeout(r, 150));
+    await new Promise(r => setTimeout(r, 200));
     ttsAbortRef.current = false;
 
     const isF = isFemale ?? persona.gender === "female";
     setAiSpeaking(true);
 
-    // 1. Brauzerdə neyral səs varsa - ƏN YAXŞI keyfiyyət
+    // 1. Brauzerdə neyral səs varsa - ƏN YAXŞI (tam mətn bir dəfə)
     const neuralVoice = findNeuralVoice(isF);
     if (neuralVoice) {
-      console.log(`[TTS] Neyral səs istifadə olunur: ${neuralVoice.name} (${neuralVoice.lang})`);
-      const chunks = splitIntoChunks(text, 250);
-      for (let i = 0; i < chunks.length; i++) {
-        if (ttsAbortRef.current) break;
-        await speakWithNeural(chunks[i], neuralVoice);
-        if (i < chunks.length - 1 && !ttsAbortRef.current) {
-          await new Promise(r => setTimeout(r, 300));
-        }
-      }
+      console.log(`[TTS] Neyral: ${neuralVoice.name}`);
+      await speakWithNeural(text, neuralVoice);
       if (!ttsAbortRef.current) setAiSpeaking(false);
       return;
     }
 
-    // 2. Neyral səs yoxdursa - edge function (Google Translate neyral)
-    console.log("[TTS] Neyral səs tapılmadı, edge function istifadə olunur");
+    // 2. Fasiləsiz Google TTS - bütün hissələri paralel yüklə və birləşdir
     const ttsVoice = isF ? "Emel" : "Ahmet";
-    const chunks = splitIntoChunks(text, 200);
+    const chunks = splitIntoChunks(text);
+    console.log(`[TTS] ${chunks.length} hissə, fasiləsiz oxuma`);
 
-    for (let i = 0; i < chunks.length; i++) {
-      if (ttsAbortRef.current) break;
-      try {
-        await playTTS(chunks[i], ttsVoice);
-        if (i < chunks.length - 1 && !ttsAbortRef.current) {
-          await new Promise(r => setTimeout(r, 300));
-        }
-      } catch (err) {
-        console.warn("[TTS] TTS uğursuz, brauzer:", err);
-        await speakWithBrowser(chunks[i], isF);
+    try {
+      const combinedBlob = await fetchCombinedAudio(chunks, ttsVoice);
+      if (ttsAbortRef.current) { setAiSpeaking(false); return; }
+
+      // Tek fasiləsiz audio kimi oxu - qətiyyət yoxdur
+      const audioUrl = URL.createObjectURL(combinedBlob);
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        setAiSpeaking(false);
+        console.log("[TTS] Fasiləsiz oxuma bitdi");
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        setAiSpeaking(false);
+      };
+      await audio.play();
+    } catch (err) {
+      console.warn("[TTS] Birləşmiş səs uğursuz, sıralı:", err);
+      for (const chunk of chunks) {
+        if (ttsAbortRef.current) break;
+        try {
+          const resp = await fetch("/api/v2/function/tts-service", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: chunk, voice: ttsVoice }),
+          });
+          if (resp.ok) {
+            const blob = await resp.blob();
+            const url = URL.createObjectURL(blob);
+            await new Promise<void>((resolve) => {
+              const a = new Audio(url);
+              audioRef.current = a;
+              a.onended = () => { URL.revokeObjectURL(url); resolve(); };
+              a.onerror = () => { URL.revokeObjectURL(url); resolve(); };
+              a.play();
+            });
+          }
+        } catch { /* davam et */ }
       }
+      if (!ttsAbortRef.current) setAiSpeaking(false);
     }
-
-    if (!ttsAbortRef.current) setAiSpeaking(false);
   };
 
   const loadInterview = async () => {
