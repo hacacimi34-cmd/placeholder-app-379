@@ -411,35 +411,44 @@ const CandidateDashboard = () => {
               </Card>
             ) : (
               <div className="grid gap-4">
-                {applications.map((application: any) => (
-                  <Card key={application._row_id} className="border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur">
-                    <CardContent className="p-6">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-4">
-                          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
-                            <Briefcase className="w-5 h-5 text-white" />
-                          </div>
-                          <div>
-                            <h3 className="font-semibold text-blue-900 dark:text-white">Müraciət #{application._row_id}</h3>
-                            <p className="text-sm text-slate-600 dark:text-slate-400">
-                              {new Date(application.applied_date * 1000).toLocaleDateString('az-AZ')}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="text-right">
-                          <Badge className={getStatusColor(application.status)}>
-                            {getStatusLabel(application.status)}
-                          </Badge>
-                          {application.ai_score && (
-                            <div className="text-sm mt-2 text-slate-600 dark:text-slate-400">
-                              AI Ball: {application.ai_score}%
+                {applications.map((application: any) => {
+                  const vacancy = vacancies.find((v: any) => v._row_id === application.vacancy_id);
+                  return (
+                    <Card key={application._row_id} className="border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur hover:border-blue-300 dark:hover:border-blue-700 transition-colors cursor-pointer" onClick={() => navigate(`/candidate/application?id=${application._row_id}`)}>
+                      <CardContent className="p-6">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center gap-4">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
+                              <Briefcase className="w-5 h-5 text-white" />
                             </div>
-                          )}
+                            <div>
+                              <h3 className="font-semibold text-blue-900 dark:text-white">{vacancy?.title || `Müraciət #${application._row_id}`}</h3>
+                              <p className="text-sm text-slate-600 dark:text-slate-400">
+                                {new Date(application.applied_date * 1000).toLocaleDateString('az-AZ')}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <Badge className={getStatusColor(application.status)}>
+                                {getStatusLabel(application.status)}
+                              </Badge>
+                              {application.ai_score && (
+                                <div className="text-sm mt-2 text-slate-600 dark:text-slate-400">
+                                  AI Ball: {application.ai_score}%
+                                </div>
+                              )}
+                            </div>
+                            <Button size="sm" variant="outline" className="shrink-0">
+                              <Eye className="w-4 h-4 mr-1" />
+                              Detallar
+                            </Button>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>

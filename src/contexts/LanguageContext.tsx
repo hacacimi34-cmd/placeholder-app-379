@@ -35,7 +35,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
   };
 
   const t = (key: string): string => {
-    return translations[key]?.[language] || key;
+    return translations[key]?.[language] || '';
   };
 
   useEffect(() => {

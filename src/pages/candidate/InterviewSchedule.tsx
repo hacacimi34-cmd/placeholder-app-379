@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,10 +20,13 @@ import { useLanguage } from "@/contexts/LanguageContext";
 
 const InterviewSchedule = () => {
   const navigate = useNavigate();
-  const searchParams = useSearchParams();
+  const [searchParams] = useSearchParams();
+  const routeParams = useParams();
   const { t } = useLanguage();
   
-  const applicationId = searchParams.get('application_id');
+  // Support both route param (HR) and query param (candidate)
+  const applicationId = routeParams.applicationId || searchParams.get('application_id') || "";
+  const isHR = !!routeParams.applicationId;
   const [application, setApplication] = useState<any>(null);
   const [vacancy, setVacancy] = useState<any>(null);
   const [candidate, setCandidate] = useState<any>(null);
@@ -50,7 +53,7 @@ const InterviewSchedule = () => {
 
         if (appResult.length === 0) {
           toast.error(t('applicationNotFound') || 'Müraciət tapılmadı');
-          navigate("/candidate/dashboard");
+          navigate(isHR ? "/hr/dashboard" : "/candidate/dashboard");
           return;
         }
 
@@ -77,7 +80,7 @@ const InterviewSchedule = () => {
       } catch (error) {
         console.error("Error loading interview data:", error);
         toast.error("Məlumatlar yüklənərkən xəta baş verdi");
-        navigate("/candidate/dashboard");
+        navigate(isHR ? "/hr/dashboard" : "/candidate/dashboard");
       } finally {
         setLoading(false);
       }
@@ -98,29 +101,40 @@ const InterviewSchedule = () => {
         return;
       }
 
-      // Create meeting link using video conference service
-      const meetingResult = await functions.post('video-conference', {
-        action: "create_meeting",
-        interview_id: applicationId,
-        candidate_name: `${candidate.first_name} ${candidate.last_name}`,
-        hr_name: "HR Team",
-        scheduled_date: Math.floor(new Date(formData.scheduledDate).getTime() / 1000),
-        scheduled_time: formData.scheduledTime,
-        candidate_email: candidate.email
-      });
+      const timestamp = Math.floor(new Date(`${formData.scheduledDate}T${formData.scheduledTime}`).getTime() / 1000);
 
-      // Create interview record
+      // Create meeting link (with fallback if edge function fails)
+      let meetingLink = `https://meet.jit.si/hrpro-${applicationId}-${Date.now()}`;
+      let meetingPassword = "";
+
+      try {
+        const meetingResult = await functions.post('video-conference', {
+          action: "create_meeting",
+          interview_id: applicationId,
+          candidate_name: `${candidate.first_name} ${candidate.last_name}`,
+          hr_name: "HR Team",
+          scheduled_date: timestamp,
+          scheduled_time: formData.scheduledTime,
+          candidate_email: candidate.email
+        });
+        if (meetingResult.meeting_link) meetingLink = meetingResult.meeting_link;
+        if (meetingResult.meeting_password) meetingPassword = meetingResult.meeting_password;
+      } catch (err) {
+        console.log("Video conference service unavailable, using fallback link");
+      }
+
+      // Create interview record in database
       const interviewData = {
-        application_id: parseInt(applicationId),
+        application_id: parseInt(applicationId as string),
         vacancy_id: application.vacancy_id,
         candidate_id: application.candidate_id,
-        scheduled_date: Math.floor(new Date(formData.scheduledDate).getTime() / 1000),
+        scheduled_date: timestamp,
         scheduled_time: formData.scheduledTime,
         duration: parseInt(formData.duration),
         interview_type: "video",
         status: "scheduled",
-        meeting_link: meetingResult.meeting_link,
-        meeting_password: meetingResult.meeting_password,
+        meeting_link: meetingLink,
+        meeting_password: meetingPassword,
         team_uuid: user.teamUuid
       };
 
@@ -130,33 +144,40 @@ const InterviewSchedule = () => {
       await db.update("applications", {
         _row_id: `eq.${applicationId}`
       }, {
-        status: "shortlisted"
+        status: "scheduled"
       });
 
-      // Send invitation emails
-      await functions.post('notification-service', {
-        action: "interview_confirmation",
-        candidate_email: candidate.email,
-        candidate_name: `${candidate.first_name} ${candidate.last_name}`,
-        vacancy_title: vacancy?.title || 'Position',
-        interview_date: formData.scheduledDate,
-        interview_time: formData.scheduledTime,
-        location: "Video Meeting",
-        meeting_link: meetingResult.meeting_link,
-        company_name: "HR Pro"
-      });
+      // Try to send notifications (non-blocking)
+      try {
+        await functions.post('notification-service', {
+          action: "interview_confirmation",
+          candidate_email: candidate.email,
+          candidate_name: `${candidate.first_name} ${candidate.last_name}`,
+          vacancy_title: vacancy?.title || 'Position',
+          interview_date: formData.scheduledDate,
+          interview_time: formData.scheduledTime,
+          location: "Video Meeting",
+          meeting_link: meetingLink,
+          company_name: "HR Pro"
+        });
+      } catch (err) {
+        console.log("Notification service unavailable");
+      }
 
-      // Send WhatsApp notification
-      await functions.post('whatsapp-service', {
-        action: "send_interview_invitation",
-        candidate_phone: candidate.phone,
-        candidate_name: `${candidate.first_name} ${candidate.last_name}`,
-        vacancy_title: vacancy?.title || 'Position',
-        interview_date: formData.scheduledDate,
-        interview_time: formData.scheduledTime,
-        location: "Video Meeting",
-        company_name: "HR Pro"
-      });
+      try {
+        await functions.post('whatsapp-service', {
+          action: "send_interview_invitation",
+          candidate_phone: candidate.phone,
+          candidate_name: `${candidate.first_name} ${candidate.last_name}`,
+          vacancy_title: vacancy?.title || 'Position',
+          interview_date: formData.scheduledDate,
+          interview_time: formData.scheduledTime,
+          location: "Video Meeting",
+          company_name: "HR Pro"
+        });
+      } catch (err) {
+        console.log("WhatsApp service unavailable");
+      }
 
       setScheduled(true);
       toast.success(t('interviewScheduled') || 'Müsahibə uğurla təyin edildi!');
@@ -210,7 +231,7 @@ const InterviewSchedule = () => {
               {t('interviewScheduledDesc') || 'Müsahibə üçün dəvətnam göndərildi. Video konfrans linki sizin Email və WhatsApp-a göndəriləcək.'}
             </p>
             <Button
-              onClick={() => navigate("/candidate/dashboard")}
+              onClick={() => navigate(isHR ? "/hr/dashboard" : "/candidate/dashboard")}
               className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white"
             >
               {t('backToDashboard') || 'Dashboard-a qayıt'}
@@ -229,7 +250,7 @@ const InterviewSchedule = () => {
           <div className="flex justify-between items-center h-16">
             <Button
               variant="ghost"
-              onClick={() => navigate("/candidate/dashboard")}
+              onClick={() => navigate(isHR ? "/hr/dashboard" : "/candidate/dashboard")}
               className="text-blue-700 dark:text-slate-300"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
@@ -334,7 +355,7 @@ const InterviewSchedule = () => {
               <form onSubmit={handleSchedule} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="scheduledDate">{t('date') || 'Tarif'}</Label>
+                    <Label htmlFor="scheduledDate">{t('date') || 'Tarix'}</Label>
                     <Input
                       id="scheduledDate"
                       type="date"
