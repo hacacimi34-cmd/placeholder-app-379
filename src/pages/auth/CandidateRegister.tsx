@@ -157,7 +157,7 @@ const CandidateRegister = () => {
         <Button
           variant="ghost"
           onClick={() => navigate("/")}
-          className="mb-6"
+          className="mb-6 text-blue-700 dark:text-blue-300 font-medium hover:text-blue-800 dark:hover:text-blue-200"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Geri qayıt
