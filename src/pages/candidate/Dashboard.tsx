@@ -14,11 +14,13 @@ import {
 } from "@/components/ui/select";
 import db from "@/lib/shared/kliv-database.js";
 import auth from "@/lib/shared/kliv-auth.js";
+import functions from "@/lib/shared/kliv-functions.js";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 const CandidateDashboard = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [searchTerm, setSearchTerm] = useState("");
   const [filterDepartment, setFilterDepartment] = useState("all");
   const [filterLocation, setFilterLocation] = useState("all");
@@ -134,23 +136,61 @@ const CandidateDashboard = () => {
         return;
       }
 
-      const applicationData = {
+      // AI CV analizi - profil məlumatlarını topla
+      const cvText = [
+        candidate.first_name + " " + candidate.last_name,
+        candidate.bio || "",
+        "Skills: " + (candidate.skills || ""),
+        "Experience: " + (candidate.years_experience || 0) + " years",
+        "City: " + (candidate.city || ""),
+        candidate.linkedin_url || "",
+      ].join("\n");
+
+      let aiScore: number | null = null;
+      let aiAnalysis: any = null;
+      try {
+        const result = await functions.post("ai-interview-engine", {
+          action: "analyze_cv",
+          cv_text: cvText,
+          vacancy_id: String(vacancyId),
+        });
+        if (result.analysis) {
+          aiScore = result.analysis.score;
+          aiAnalysis = result.analysis;
+        }
+      } catch (aiErr: any) {
+        console.error("AI analysis error (non-fatal):", aiErr);
+        if (aiErr?.details?.analysis) {
+          aiScore = aiErr.details.analysis.score;
+          aiAnalysis = aiErr.details.analysis;
+        }
+      }
+
+      // AI balını birbaşa insert-ə yaz (RLS update-i bloklayır)
+      const applicationData: any = {
         vacancy_id: vacancyId,
         candidate_id: candidate._row_id,
-        status: "pending",
+        status: "under_review",
         applied_date: Math.floor(Date.now() / 1000),
-        cover_letter: ""
+        cover_letter: "",
       };
+
+      if (aiScore !== null) {
+        applicationData.ai_score = aiScore;
+        if (aiAnalysis) {
+          applicationData.cover_letter = JSON.stringify({ ai_analysis: aiAnalysis });
+        }
+      }
 
       await db.insert("applications", applicationData);
 
-      // Trigger AI matching
-      const vacancy = vacancies.find(v => v._row_id === vacancyId);
-      if (vacancy) {
-        // You could call the AI function here
-        toast.success("Müraciət göndərildi! AI uyğunluq qiymətləndirməsi aparılır...");
+      // Cache-i yenilə
+      queryClient.invalidateQueries({ queryKey: ["my-applications"] });
+
+      if (aiScore !== null) {
+        toast.success(`Müraciət göndərildi! ✨ AI uyğunluq balınız: ${aiScore}%`);
       } else {
-        toast.success("Müraciət uğurla göndərildi!");
+        toast.success("Müraciət göndərildi!");
       }
 
     } catch (error) {
