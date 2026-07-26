@@ -335,12 +335,17 @@ const InterviewRoom = () => {
         bestVoice = trVoices[0];
       }
 
-      if (bestVoice) {
-        utterance.voice = bestVoice;
-        console.log(`[TTS-Browser] Səs: ${bestVoice.name} (${bestVoice.lang})`);
+      // ƏGƏR Türk/Azərbaycan səsi yoxdursa — browser TTS İŞLƏTMƏ
+      // (yoxsa İngilis səsi ilə danışacaq!)
+      if (!bestVoice) {
+        console.warn("[TTS-Browser] Türk/Az səsi tapılmadı — browser TTS keçilir");
+        resolve(false);
+        return;
       }
 
-      utterance.lang = "tr-TR";
+      utterance.voice = bestVoice;
+      utterance.lang = bestVoice.lang || "tr-TR";
+      console.log(`[TTS-Browser] Səs: ${bestVoice.name} (${bestVoice.lang})`);
       utterance.rate = 0.92;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
