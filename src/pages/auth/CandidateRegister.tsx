@@ -100,7 +100,11 @@ const CandidateRegister = () => {
     setLoading(true);
 
     try {
-      // Step 1: Try to create user account
+      // Mevcut oturumu temizle (HR olarak giriş yapmış olabilir)
+      try { await auth.signOut(); } catch(e) {}
+      auth.user = null;
+
+      // Step 1: Yeni hesab yarat
       let user: any = null;
       const signUpResponse = await fetch('/api/v2/auth/signup', {
         method: 'POST',
@@ -108,7 +112,7 @@ const CandidateRegister = () => {
         body: JSON.stringify({
           email: formData.email,
           password: formData.password,
-          name: `${formData.firstName} ${formData.lastName}`
+          name: formData.firstName + " " + formData.lastName
         })
       });
 

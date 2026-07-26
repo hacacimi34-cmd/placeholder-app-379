@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   User, Briefcase, Video, Search, MapPin, DollarSign, 
-  CheckCircle, FileText, Eye, Building, Clock
+  CheckCircle, FileText, Eye, Building, Clock, BrainCircuit
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { 
@@ -479,16 +479,34 @@ const CandidateDashboard = () => {
                           <Badge className={getStatusColor(interview.status)}>
                             {getStatusLabel(interview.status)}
                           </Badge>
-                          {interview.meeting_link && (
-                            <Button 
-                              size="sm" 
-                              className="mt-2"
-                              onClick={() => window.open(interview.meeting_link, '_blank')}
-                            >
-                              <Video className="w-4 h-4 mr-1" />
-                              Müsahibəyə Qoşul
-                            </Button>
-                          )}
+                          <div className="flex gap-2 mt-2 justify-end">
+                            {interview.status !== "completed" && (
+                              <Button 
+                                size="sm"
+                                className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  navigate(`/interview/${interview._row_id}`);
+                                }}
+                              >
+                                <BrainCircuit className="w-4 h-4 mr-1" />
+                                AI Müsahibəyə Başla
+                              </Button>
+                            )}
+                            {interview.meeting_link && (
+                              <Button 
+                                size="sm" 
+                                variant="outline"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  window.open(interview.meeting_link, '_blank');
+                                }}
+                              >
+                                <Video className="w-4 h-4 mr-1" />
+                                Video Link
+                              </Button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </CardContent>
