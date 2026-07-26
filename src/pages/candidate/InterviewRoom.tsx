@@ -212,9 +212,9 @@ const InterviewRoom = () => {
             .replace(/</g, "&lt;")
             .replace(/>/g, "&gt;")
             .replace(/"/g, "&quot;")
-            .replace(/([.!?])\s+/g, '$1<break time="350ms"/> ')
-            .replace(/([,;:])\s+/g, '$1<break time="180ms"/> ');
-          const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='tr-TR'><voice name='${voice}'><prosody rate='-5%' pitch='+0st'>${escaped}</prosody></voice></speak>`;
+            .replace(/([.!?])\s+/g, '$1<break time="200ms"/> ')
+            .replace(/([,;:])\s+/g, '$1<break time="100ms"/> ');
+          const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='tr-TR'><voice name='${voice}'><prosody rate='+10%' pitch='+0st'>${escaped}</prosody></voice></speak>`;
 
           setTimeout(() => {
             if (ws.readyState === WebSocket.OPEN) {
@@ -346,7 +346,7 @@ const InterviewRoom = () => {
       utterance.voice = bestVoice;
       utterance.lang = bestVoice.lang || "tr-TR";
       console.log(`[TTS-Browser] Səs: ${bestVoice.name} (${bestVoice.lang})`);
-      utterance.rate = 0.92;
+      utterance.rate = 1.12;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
