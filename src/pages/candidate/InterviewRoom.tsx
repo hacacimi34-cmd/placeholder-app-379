@@ -206,8 +206,15 @@ const InterviewRoom = () => {
           ws.send(`X-Timestamp:${new Date().toISOString()}\r\nContent-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n${config}`);
 
           const reqId = crypto.randomUUID().replace(/-/g, "");
-          const escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-          const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='tr-TR'><voice name='${voice}'><prosody rate='-10%'>${escaped}</prosody></voice></speak>`;
+          // Təbii danışıq üçün: cümlə sonlarında nəfəs fasiləsi, vergüldə qısa pauza
+          const escaped = text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/([.!?])\s+/g, '$1<break time="350ms"/> ')
+            .replace(/([,;:])\s+/g, '$1<break time="180ms"/> ');
+          const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='tr-TR'><voice name='${voice}'><prosody rate='-5%' pitch='+0st'>${escaped}</prosody></voice></speak>`;
 
           setTimeout(() => {
             if (ws.readyState === WebSocket.OPEN) {
@@ -307,7 +314,7 @@ const InterviewRoom = () => {
     return chunks.length > 0 ? chunks : [clean.substring(0, maxLen)];
   };
 
-  // ƏSAS danışıq - ElevenLabs (ən təbii AI səsi)
+  // ƏSAS danışıq - Microsoft Edge Neyral (təbii, insana bənzər Türk səsi)
   const speakText = async (text: string, isFemale?: boolean) => {
     if (!text || text.trim().length === 0) return;
 
@@ -319,62 +326,63 @@ const InterviewRoom = () => {
     ttsAbortRef.current = false;
 
     const isF = isFemale ?? persona.gender === "female";
-    const ttsVoice = isF ? "Emel" : "Ahmet";
     setAiSpeaking(true);
 
-    // Mətni təmizlə
-    const cleanText = text.replace(/[*#_`]/g, "").replace(/\s+/g, " ").trim();
+    // Mətni təmizlə — markdown və AI artifact-ləri sil
+    const cleanText = text
+      .replace(/\*\*/g, "")
+      .replace(/[*#_`]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
 
-    // ═══ 1. ELEVENLABS — ən təbii AI səsi (edge function vasitəsilə) ═══
-    console.log("[TTS] ElevenLabs cəhd edilir...");
+    // ═══ 1. MICROSOFT EDGE NEYRAL — təbii Türk səsi, nəfəs fasilələri ilə ═══
+    const chunks = splitIntoChunks(cleanText);
+    console.log(`[TTS] Edge Neyral: ${chunks.length} hissə, səs=${isF ? "Emel" : "Ahmet"}`);
+
     try {
-      const resp = await fetch("/api/v2/function/tts-service", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: cleanText.substring(0, 2000), voice: ttsVoice }),
-      });
-      if (resp.ok) {
-        const blob = await resp.blob();
-        if (blob.size > 500 && !ttsAbortRef.current) {
-          const audioUrl = URL.createObjectURL(blob);
-          const audio = new Audio(audioUrl);
-          audioRef.current = audio;
-          audio.onended = () => { URL.revokeObjectURL(audioUrl); setAiSpeaking(false); };
-          audio.onerror = () => { URL.revokeObjectURL(audioUrl); setAiSpeaking(false); };
-          await audio.play();
-          console.log(`[TTS] ElevenLabs oxunur! (${blob.size} bytes)`);
-          return;
-        }
+      const blobs = await Promise.all(
+        chunks.map((chunk) => speakWithEdgeBrowser(chunk, isF))
+      );
+      const validBlobs = blobs.filter((b): b is Blob => b !== null && b.size > 100);
+
+      if (validBlobs.length > 0 && !ttsAbortRef.current) {
+        const combined = new Blob(validBlobs, { type: "audio/mpeg" });
+        const audioUrl = URL.createObjectURL(combined);
+        const audio = new Audio(audioUrl);
+        audioRef.current = audio;
+        audio.onended = () => { URL.revokeObjectURL(audioUrl); setAiSpeaking(false); };
+        audio.onerror = () => { URL.revokeObjectURL(audioUrl); setAiSpeaking(false); };
+        await audio.play();
+        console.log("[TTS] Edge Neyral oxunur! ✅");
+        return;
       }
-      console.warn("[TTS] ElevenLabs status:", resp.status);
     } catch (err) {
-      console.warn("[TTS] ElevenLabs uğursuz:", err);
+      console.warn("[TTS] Edge Neyral uğursuz:", err);
     }
 
-    // ═══ 2. Fallback: Microsoft Edge Neyral TTS (brauzerdən) ═══
+    // ═══ 2. Fallback: Edge function (Google TTS) ═══
     if (!ttsAbortRef.current) {
-      const chunks = splitIntoChunks(text);
-      console.log(`[TTS] Edge Neyral fallback: ${chunks.length} hissə`);
+      console.log("[TTS] Edge function fallback...");
+      const ttsVoice = isF ? "Emel" : "Ahmet";
       try {
-        const blobs = await Promise.all(
-          chunks.map((chunk) => speakWithEdgeBrowser(chunk, isF))
-        );
-        const validBlobs = blobs.filter((b): b is Blob => b !== null && b.size > 100);
-
-        if (validBlobs.length > 0 && !ttsAbortRef.current) {
-          const combined = new Blob(validBlobs, { type: "audio/mpeg" });
-          const audioUrl = URL.createObjectURL(combined);
-          const audio = new Audio(audioUrl);
-          audioRef.current = audio;
-          audio.onended = () => { URL.revokeObjectURL(audioUrl); setAiSpeaking(false); };
-          audio.onerror = () => { URL.revokeObjectURL(audioUrl); setAiSpeaking(false); };
-          await audio.play();
-          console.log("[TTS] Edge Neyral oxunur!");
-          return;
+        const resp = await fetch("/api/v2/function/tts-service", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: cleanText.substring(0, 2000), voice: ttsVoice }),
+        });
+        if (resp.ok) {
+          const blob = await resp.blob();
+          if (blob.size > 100 && !ttsAbortRef.current) {
+            const audioUrl = URL.createObjectURL(blob);
+            const audio = new Audio(audioUrl);
+            audioRef.current = audio;
+            audio.onended = () => { URL.revokeObjectURL(audioUrl); setAiSpeaking(false); };
+            audio.onerror = () => { URL.revokeObjectURL(audioUrl); setAiSpeaking(false); };
+            await audio.play();
+            return;
+          }
         }
-      } catch (err) {
-        console.warn("[TTS] Edge browser uğursuz:", err);
-      }
+      } catch {}
     }
 
     setAiSpeaking(false);
