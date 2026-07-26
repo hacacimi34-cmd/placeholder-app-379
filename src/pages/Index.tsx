@@ -110,8 +110,7 @@ const Index = () => {
               <Button
                 size="lg"
                 onClick={() => handleGetStarted("candidate")}
-                variant="outline"
-                className="text-lg px-8 py-6 border-2 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-900 font-semibold"
+                className="text-lg px-8 py-6 font-semibold bg-white dark:bg-slate-800 text-blue-700 dark:text-blue-300 border-2 border-blue-200 dark:border-blue-800 hover:bg-blue-50 dark:hover:bg-slate-700 shadow-lg"
               >
                 <Users className="w-5 h-5 mr-2" />
                 {t('forCandidates') || 'For Candidates'}
