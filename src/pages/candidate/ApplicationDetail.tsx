@@ -174,12 +174,12 @@ const ApplicationDetail = () => {
             <Button
               variant="ghost"
               onClick={() => navigate("/candidate/dashboard")}
-              className="text-slate-700 dark:text-slate-300"
+              className="text-blue-700 dark:text-slate-300"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               {t('back') || 'Geri'}
             </Button>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+            <h1 className="text-xl font-bold text-blue-900 dark:text-white">
               {t('applicationDetails') || 'Müraciət Təfərruatları'}
             </h1>
           </div>
@@ -192,7 +192,7 @@ const ApplicationDetail = () => {
           <Card className="border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur">
             <CardHeader>
               <div className="flex items-center justify-between">
-                <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white">
+                <CardTitle className="text-xl font-semibold text-blue-900 dark:text-white">
                   {t('applicationStatus') || 'Müraciət Statusu'}
                 </CardTitle>
                 <Badge className={getStatusColor(application.status)}>
@@ -204,7 +204,7 @@ const ApplicationDetail = () => {
               <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
                 <Calendar className="w-4 h-4" />
                 <span>{t('appliedOn') || 'Müraciət tarixi:'}:</span>
-                <span className="font-medium text-slate-900 dark:text-white">
+                <span className="font-medium text-blue-900 dark:text-white">
                   {new Date(application.applied_date * 1000).toLocaleDateString('az-AZ')}
                 </span>
               </div>
@@ -221,10 +221,10 @@ const ApplicationDetail = () => {
 
               {application.ai_feedback && (
                 <div className="p-4 bg-blue-50 dark:bg-slate-800/50 rounded-lg">
-                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                  <p className="text-sm text-blue-700 dark:text-slate-300">
                     <strong className="text-blue-800 dark:text-blue-200">{t('aiFeedback') || 'AI Rəyi:'}</strong>
                   </p>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">
+                  <p className="text-sm text-blue-700 dark:text-slate-300 mt-1">
                     {application.ai_feedback}
                   </p>
                 </div>
@@ -232,10 +232,10 @@ const ApplicationDetail = () => {
 
               {application.cover_letter && (
                 <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                  <p className="text-sm text-blue-700 dark:text-slate-300">
                     <strong>{t('coverLetter') || 'Əriz Məktub:'}</strong>
                   </p>
-                  <p className="text-sm text-slate-700 dark:text-slate-300 mt-1 line-clamp-3">
+                  <p className="text-sm text-blue-700 dark:text-slate-300 mt-1 line-clamp-3">
                     {application.cover_letter}
                   </p>
                 </div>
@@ -260,7 +260,7 @@ const ApplicationDetail = () => {
                 <div className="flex flex-col items-center justify-center gap-4">
                   <BrainCircuit className="w-12 h-12 text-blue-600 animate-pulse" />
                   <div>
-                    <p className="text-lg font-medium text-slate-900 dark:text-white">
+                    <p className="text-lg font-medium text-blue-900 dark:text-white">
                       {t('analyzingCV') || 'CV-nizi AI təhlil edilir...'}
                     </p>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -273,7 +273,7 @@ const ApplicationDetail = () => {
           ) : cvAnalysis ? (
             <Card className="border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur">
               <CardHeader>
-                <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <CardTitle className="text-xl font-semibold text-blue-900 dark:text-white flex items-center gap-2">
                   <BrainCircuit className="w-5 h-5 text-blue-600" />
                   {t('aiCVAnalysis') || 'AI CV Təhlili'}
                 </CardTitle>
@@ -328,7 +328,7 @@ const ApplicationDetail = () => {
                     </p>
                     <ul className="list-disc list-inside space-y-1">
                       {cvAnalysis.recommendations.map((rec: string, index: number) => (
-                        <li key={index} className="text-sm text-slate-700 dark:text-slate-300 ml-4">
+                        <li key={index} className="text-sm text-blue-700 dark:text-slate-300 ml-4">
                           {rec}
                         </li>
                       ))}
@@ -337,7 +337,7 @@ const ApplicationDetail = () => {
                 )}
 
                 {cvAnalysis.analysis && (
-                  <div className="text-sm text-slate-700 dark:text-slate-300 italic">
+                  <div className="text-sm text-blue-700 dark:text-slate-300 italic">
                     {cvAnalysis.analysis}
                   </div>
                 )}
@@ -358,7 +358,7 @@ const ApplicationDetail = () => {
           {interview && (
             <Card className="border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur">
               <CardHeader>
-                <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <CardTitle className="text-xl font-semibold text-blue-900 dark:text-white flex items-center gap-2">
                   <Video className="w-5 h-5 text-purple-600" />
                   {t('interviewDetails') || 'Müsahibə Məlumatları'}
                 </CardTitle>
@@ -370,7 +370,7 @@ const ApplicationDetail = () => {
                       <Calendar className="w-4 h-4 inline mr-1" />
                       {t('date') || 'Tarix:'}
                     </p>
-                    <p className="text-base font-medium text-slate-900 dark:text-white">
+                    <p className="text-base font-medium text-blue-900 dark:text-white">
                       {new Date(interview.scheduled_date * 1000).toLocaleDateString('az-AZ')}
                     </p>
                   </div>
@@ -379,7 +379,7 @@ const ApplicationDetail = () => {
                       <Clock className="w-4 h-4 inline mr-1" />
                       {t('time') || 'Vaxt:'}
                     </p>
-                    <p className="text-base font-medium text-slate-900 dark:text-white">
+                    <p className="text-base font-medium text-blue-900 dark:text-white">
                       {interview.scheduled_time}
                     </p>
                   </div>
@@ -390,14 +390,14 @@ const ApplicationDetail = () => {
                     <TrendingUp className="w-4 h-4 inline mr-1" />
                     {t('duration') || 'Müddət:'}
                   </p>
-                  <p className="text-base font-medium text-slate-900 dark:text-white">
+                  <p className="text-base font-medium text-blue-900 dark:text-white">
                     {interview.duration} dəqiqə
                   </p>
                 </div>
 
                 {interview.meeting_link && (
                   <div className="p-4 bg-purple-50 dark:bg-slate-800/50 rounded-lg">
-                    <p className="text-sm text-slate-700 dark:text-slate-300 mb-2">
+                    <p className="text-sm text-blue-700 dark:text-slate-300 mb-2">
                       {t('meetingLink') || 'Video konfrans linki:'}
                     </p>
                     <a 
@@ -422,10 +422,10 @@ const ApplicationDetail = () => {
 
                 {interview.interviewer_notes && (
                   <div className="p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+                    <p className="text-sm font-medium text-blue-700 dark:text-slate-300 mb-2">
                       {t('interviewerNotes') || 'HR Qeydləri:'}
                     </p>
-                    <p className="text-sm text-slate-700 dark:text-slate-300 line-clamp-3">
+                    <p className="text-sm text-blue-700 dark:text-slate-300 line-clamp-3">
                       {interview.interviewer_notes}
                     </p>
                   </div>
@@ -437,7 +437,7 @@ const ApplicationDetail = () => {
           {/* AI Integration Info Card */}
           <Card className="border-slate-200 dark:border-slate-800 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950 dark:to-indigo-950">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <CardTitle className="text-xl font-semibold text-blue-900 dark:text-white flex items-center gap-2">
                 <Star className="w-5 h-5 text-purple-600" />
                 {t('aiIntegration') || 'AI İnteqrasiyası'}
               </CardTitle>
@@ -446,7 +446,7 @@ const ApplicationDetail = () => {
               <div className="flex items-start gap-3">
                 <CheckCircle2 className="w-5 h-5 text-green-600 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                  <p className="text-sm font-medium text-blue-900 dark:text-white">
                     {t('automaticScoring') || 'Avtomatik Qiymətləndirmə'}
                   </p>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -470,7 +470,7 @@ const ApplicationDetail = () => {
               <div className="flex items-start gap-3">
                 <Video className="w-5 h-5 text-purple-600 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-slate-900 dark:text-white">
+                  <p className="text-sm font-medium text-blue-900 dark:text-white">
                     {t('interviewQuestions') || 'AI Sualları'}
                   </p>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -483,7 +483,7 @@ const ApplicationDetail = () => {
                 <div className="flex items-start gap-3">
                   <CheckCircle2 className="w-5 h-5 text-blue-600 mt-0.5" />
                   <div>
-                    <p className="text-sm font-medium text-slate-900 dark:text-white">
+                    <p className="text-sm font-medium text-blue-900 dark:text-white">
                       {t('interviewInvitation') || 'Video Müsahibə Dəvəti'}
                     </p>
                     <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -498,7 +498,7 @@ const ApplicationDetail = () => {
           {/* Next Steps Card */}
           <Card className="border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white">
+              <CardTitle className="text-xl font-semibold text-blue-900 dark:text-white">
                 {t('nextSteps') || 'Növbə Addımlar'}
               </CardTitle>
             </CardHeader>

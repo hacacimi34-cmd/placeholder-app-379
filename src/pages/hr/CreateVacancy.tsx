@@ -94,12 +94,12 @@ const CreateVacancy = () => {
             <Button
               variant="ghost"
               onClick={() => navigate("/hr/dashboard")}
-              className="text-slate-700 dark:text-slate-300"
+              className="text-blue-700 dark:text-slate-300"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Geri
             </Button>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">Yeni Vakansiya</h1>
+            <h1 className="text-xl font-bold text-blue-900 dark:text-white">Yeni Vakansiya</h1>
             <div className="w-20" /> {/* Spacer for centering */}
           </div>
         </div>

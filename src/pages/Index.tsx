@@ -58,7 +58,7 @@ const Index = () => {
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg">
                 <Briefcase className="w-6 h-6 text-white" />
               </div>
-              <span className="text-xl font-bold text-slate-900 dark:text-white">
+              <span className="text-xl font-bold text-blue-700 dark:text-blue-300">
                 {t('appName') || 'HR Pro'}
               </span>
             </div>
@@ -67,7 +67,7 @@ const Index = () => {
               <Button
                 variant="ghost"
                 onClick={() => handleGetStarted("hr")}
-                className="text-slate-700 dark:text-slate-300 font-medium"
+                className="text-blue-700 dark:text-blue-300 font-medium"
               >
                 {t('hrPortal') || 'HR Portal'}
               </Button>
@@ -91,11 +91,11 @@ const Index = () => {
               <Globe className="w-3 h-3 mr-1" />
               {t('appTagline') || 'Premium HR Platform'}
             </Badge>
-            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-blue-900 dark:text-white mb-6 leading-tight">
               {t('smartHiring') || 'Smart Hiring,'}
               <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent"> {t('betterResults') || 'Better Results'}</span>
             </h1>
-            <p className="text-xl text-slate-700 dark:text-slate-300 max-w-3xl mx-auto mb-12 leading-relaxed">
+            <p className="text-xl text-slate-600 dark:text-slate-300 max-w-3xl mx-auto mb-12 leading-relaxed">
               {t('heroDescription') || 'Advanced AI-powered recruitment platform with video interviews, smart candidate matching, and comprehensive hiring management for modern businesses.'}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
@@ -124,7 +124,7 @@ const Index = () => {
             {stats.map((stat, index) => (
               <div key={index} className="text-center">
                 <div className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600 mb-2">{stat.value}</div>
-                <div className="text-base font-medium text-slate-700 dark:text-slate-300">{stat.label}</div>
+                <div className="text-base font-medium text-slate-600 dark:text-slate-300">{stat.label}</div>
               </div>
             ))}
           </div>
@@ -137,10 +137,10 @@ const Index = () => {
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center mb-4 shadow-md">
                     <feature.icon className="w-6 h-6 text-white" />
                   </div>
-                  <CardTitle className="text-lg font-semibold text-slate-900 dark:text-white">{feature.title}</CardTitle>
+                  <CardTitle className="text-lg font-semibold text-blue-800 dark:text-blue-200">{feature.title}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-slate-700 dark:text-slate-300 text-sm leading-relaxed">{feature.description}</p>
+                  <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed">{feature.description}</p>
                 </CardContent>
               </Card>
             ))}
@@ -148,7 +148,7 @@ const Index = () => {
 
           {/* How It Works */}
           <div className="mb-20">
-            <h2 className="text-3xl font-bold text-center text-slate-900 dark:text-white mb-12">
+            <h2 className="text-3xl font-bold text-center text-blue-900 dark:text-white mb-12">
               {t('howItWorks') || 'How It Works'}
             </h2>
             <div className="grid md:grid-cols-3 gap-8">
@@ -161,8 +161,8 @@ const Index = () => {
                   <div className="flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-full text-white text-2xl font-bold mb-4 shadow-lg">
                     {item.step}
                   </div>
-                  <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-2">{item.title}</h3>
-                  <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{item.description}</p>
+                  <h3 className="text-xl font-semibold text-blue-800 dark:text-blue-200 mb-2">{item.title}</h3>
+                  <p className="text-slate-600 dark:text-slate-300 leading-relaxed">{item.description}</p>
                 </div>
               ))}
             </div>
@@ -173,7 +173,7 @@ const Index = () => {
       {/* Footer */}
       <footer className="bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-slate-700 dark:text-slate-300">
+          <p className="text-slate-600 dark:text-slate-400 font-medium">
             © 2026 HR Pro - {t('appTagline') || 'Premium HR & İşə Qəbul Platforması'}
           </p>
         </div>

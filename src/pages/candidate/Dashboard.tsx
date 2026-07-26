@@ -210,7 +210,7 @@ const CandidateDashboard = () => {
                 <User className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white">Namizəd Paneli</h1>
+                <h1 className="text-xl font-bold text-blue-900 dark:text-white">Namizəd Paneli</h1>
                 <p className="text-sm text-slate-600 dark:text-slate-400">
                   {candidate ? `${candidate.first_name} ${candidate.last_name}` : "Profil yoxdur"}
                 </p>
@@ -239,7 +239,7 @@ const CandidateDashboard = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Aktiv Vakansiyalar</p>
-                  <p className="text-3xl font-bold text-slate-900 dark:text-white">{vacancies.length}</p>
+                  <p className="text-3xl font-bold text-blue-900 dark:text-white">{vacancies.length}</p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center">
                   <Briefcase className="w-6 h-6 text-white" />
@@ -253,7 +253,7 @@ const CandidateDashboard = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Müraciətlərim</p>
-                  <p className="text-3xl font-bold text-slate-900 dark:text-white">{applications.length}</p>
+                  <p className="text-3xl font-bold text-blue-900 dark:text-white">{applications.length}</p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
                   <CheckCircle className="w-6 h-6 text-white" />
@@ -267,7 +267,7 @@ const CandidateDashboard = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">Müsahibələrim</p>
-                  <p className="text-3xl font-bold text-slate-900 dark:text-white">{interviews.length}</p>
+                  <p className="text-3xl font-bold text-blue-900 dark:text-white">{interviews.length}</p>
                 </div>
                 <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center">
                   <Video className="w-6 h-6 text-white" />
@@ -282,7 +282,7 @@ const CandidateDashboard = () => {
           {/* Vacancies Section */}
           <div>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white">Aktiv Vakansiyalar</h2>
+              <h2 className="text-2xl font-bold text-blue-900 dark:text-white">Aktiv Vakansiyalar</h2>
               <div className="flex gap-2">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
@@ -339,7 +339,7 @@ const CandidateDashboard = () => {
                         <div className="flex justify-between items-start mb-4">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
-                              <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{vacancy.title}</h3>
+                              <h3 className="text-lg font-semibold text-blue-900 dark:text-white">{vacancy.title}</h3>
                               {applicationStatus && (
                                 <Badge className={getStatusColor(applicationStatus)}>
                                   {getStatusLabel(applicationStatus)}
@@ -396,7 +396,7 @@ const CandidateDashboard = () => {
 
           {/* My Applications Section */}
           <div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">Müraciətlərim</h2>
+            <h2 className="text-2xl font-bold text-blue-900 dark:text-white mb-4">Müraciətlərim</h2>
             {applicationsLoading ? (
               <div className="text-center py-12">
                 <div className="animate-spin w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto"></div>
@@ -420,7 +420,7 @@ const CandidateDashboard = () => {
                             <Briefcase className="w-5 h-5 text-white" />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-slate-900 dark:text-white">Müraciət #{application._row_id}</h3>
+                            <h3 className="font-semibold text-blue-900 dark:text-white">Müraciət #{application._row_id}</h3>
                             <p className="text-sm text-slate-600 dark:text-slate-400">
                               {new Date(application.applied_date * 1000).toLocaleDateString('az-AZ')}
                             </p>
@@ -447,7 +447,7 @@ const CandidateDashboard = () => {
           {/* Interviews Section */}
           {interviews.length > 0 && (
             <div>
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-4">Müsahibələrim</h2>
+              <h2 className="text-2xl font-bold text-blue-900 dark:text-white mb-4">Müsahibələrim</h2>
               <div className="grid gap-4">
                 {interviews.map((interview: any) => (
                   <Card key={interview._row_id} className="border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur">
@@ -458,7 +458,7 @@ const CandidateDashboard = () => {
                             <Video className="w-5 h-5 text-white" />
                           </div>
                           <div>
-                            <h3 className="font-semibold text-slate-900 dark:text-white">
+                            <h3 className="font-semibold text-blue-900 dark:text-white">
                               {new Date(interview.scheduled_date * 1000).toLocaleDateString('az-AZ')} - {interview.scheduled_time}
                             </h3>
                             <p className="text-sm text-slate-600 dark:text-slate-400">

@@ -72,7 +72,7 @@ const HRLogin = () => {
                 <Briefcase className="w-8 h-8 text-white" />
               </div>
             </div>
-            <CardTitle className="text-2xl font-bold text-slate-900 dark:text-white">
+            <CardTitle className="text-2xl font-bold text-blue-900 dark:text-white">
               {t('hrPortalLogin') || 'HR Portal Girişi'}
             </CardTitle>
             <CardDescription className="text-slate-600 dark:text-slate-400">
@@ -83,12 +83,12 @@ const HRLogin = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
                 <Alert variant="destructive">
-                  <AlertDescription className="text-slate-900 dark:text-white">{error}</AlertDescription>
+                  <AlertDescription className="text-blue-900 dark:text-white">{error}</AlertDescription>
                 </Alert>
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-slate-700 dark:text-slate-300 font-medium">{t('email') || 'E-poçt ünvanı'}</Label>
+                <Label htmlFor="email" className="text-blue-700 dark:text-slate-300 font-medium">{t('email') || 'E-poçt ünvanı'}</Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
@@ -104,7 +104,7 @@ const HRLogin = () => {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-slate-700 dark:text-slate-300 font-medium">{t('password') || 'Şifrə'}</Label>
+                <Label htmlFor="password" className="text-blue-700 dark:text-slate-300 font-medium">{t('password') || 'Şifrə'}</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-400" />
                   <Input
@@ -166,7 +166,7 @@ const HRLogin = () => {
               >
                 Demo məlumatları doldur
               </Button>
-              <p className="text-sm text-slate-700 dark:text-slate-300">
+              <p className="text-sm text-blue-700 dark:text-slate-300">
                 {t('notHRManager') || 'HR menecer deyilsiniz?'}
               </p>
               <Button

@@ -203,7 +203,7 @@ const InterviewSchedule = () => {
             <div className="flex justify-center mb-6">
               <CheckCircle2 className="w-16 h-16 text-green-600" />
             </div>
-            <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
+            <h2 className="text-2xl font-bold text-blue-900 dark:text-white mb-2">
               {t('interviewScheduled') || 'Müsahibə Təyin Edildi!'}
             </h2>
             <p className="text-slate-600 dark:text-slate-400 mb-6">
@@ -230,12 +230,12 @@ const InterviewSchedule = () => {
             <Button
               variant="ghost"
               onClick={() => navigate("/candidate/dashboard")}
-              className="text-slate-700 dark:text-slate-300"
+              className="text-blue-700 dark:text-slate-300"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               {t('back') || 'Geri'}
             </Button>
-            <h1 className="text-xl font-bold text-slate-900 dark:text-white">
+            <h1 className="text-xl font-bold text-blue-900 dark:text-white">
               {t('scheduleInterview') || 'Müsahibə Təyin Et'}
             </h1>
           </div>
@@ -247,7 +247,7 @@ const InterviewSchedule = () => {
           {/* Interview Info Card */}
           <Card className="border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur shadow-lg">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <CardTitle className="text-xl font-semibold text-blue-900 dark:text-white flex items-center gap-2">
                 <Video className="w-5 h-5 text-purple-600" />
                 {t('interviewInfo') || 'Müsahibə Məlumatları'}
               </CardTitle>
@@ -263,7 +263,7 @@ const InterviewSchedule = () => {
                       {candidate?.first_name?.[0]}{candidate?.last_name?.[0]}
                     </div>
                     <div>
-                      <p className="font-medium text-slate-900 dark:text-white">
+                      <p className="font-medium text-blue-900 dark:text-white">
                         {candidate?.first_name} {candidate?.last_name}
                       </p>
                       <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -276,7 +276,7 @@ const InterviewSchedule = () => {
                   <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">
                     {t('vacancy') || 'Vakansiya:'}
                   </p>
-                  <p className="font-medium text-slate-900 dark:text-white">
+                  <p className="font-medium text-blue-900 dark:text-white">
                     {vacancy?.title}
                   </p>
                   <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -286,11 +286,11 @@ const InterviewSchedule = () => {
               </div>
 
               <div className="pt-4 border-t border-slate-200 dark:border-slate-800">
-                <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">
+                <p className="text-sm text-blue-700 dark:text-slate-300 mb-3">
                   <Info className="w-4 h-4 inline mr-1" />
                   {t('interviewMode') || 'Müsahibə Modu:'}
                 </p>
-                <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
+                <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-slate-300">
                   <Video className="w-4 h-4 text-purple-600" />
                   {t('videoCall') || 'Video zəng'}
                 </div>
@@ -301,13 +301,13 @@ const InterviewSchedule = () => {
           {/* AI Interview Questions Card */}
           <Card className="border-slate-200 dark:border-slate-800 bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-purple-950 dark:to-indigo-950">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+              <CardTitle className="text-xl font-semibold text-blue-900 dark:text-white flex items-center gap-2">
                 <BrainCircuit className="w-5 h-5 text-purple-600" />
                 {t('aiPowered') || 'AI ilə Video Müsahibə'}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-sm text-slate-700 dark:text-slate-300 mb-4">
+              <p className="text-sm text-blue-700 dark:text-slate-300 mb-4">
                 {t('aiQuestionsDesc') || 'AI vakansiya üçün xüsusi suallar yaradacaq və müsahibə zamanı sizin performansın qiymətləndirəcək.'}
               </p>
               <div className="grid grid-cols-2 gap-4">
@@ -326,7 +326,7 @@ const InterviewSchedule = () => {
           {/* Scheduling Form */}
           <Card className="border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur shadow-lg">
             <CardHeader>
-              <CardTitle className="text-xl font-semibold text-slate-900 dark:text-white">
+              <CardTitle className="text-xl font-semibold text-blue-900 dark:text-white">
                 {t('scheduleTime') || 'Vaxt Təyin Et'}
               </CardTitle>
             </CardHeader>
@@ -401,7 +401,7 @@ const InterviewSchedule = () => {
               <div className="flex items-start gap-3">
                 <Info className="w-5 h-5 text-blue-600 mt-0.5" />
                 <div>
-                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                  <p className="text-sm text-blue-700 dark:text-slate-300">
                     <strong>{t('tips') || 'Məsləhəmə hazırlaşın haqqında məlumat:'}</strong>
                   <br />
                     {t('tipsContent') || 'Stabil internet, qəbul etmək üçün öz hazırlaşın. Sualarınızı öncədən yazın və ya sözlüklən CV-nizi daxil edin.'}

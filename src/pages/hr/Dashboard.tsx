@@ -186,7 +186,7 @@ const Dashboard = () => {
                 <Briefcase className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-slate-900 dark:text-white">HR Dashboard</h1>
+                <h1 className="text-xl font-bold text-blue-900 dark:text-white">HR Dashboard</h1>
                 <p className="text-sm text-slate-600 dark:text-slate-400">İnsan Resursları Paneli</p>
               </div>
             </div>
@@ -214,7 +214,7 @@ const Dashboard = () => {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">{stat.title}</p>
-                    <p className="text-3xl font-bold text-slate-900 dark:text-white">{stat.value}</p>
+                    <p className="text-3xl font-bold text-blue-900 dark:text-white">{stat.value}</p>
                   </div>
                   <div className={`w-12 h-12 rounded-lg bg-gradient-to-br ${stat.color} flex items-center justify-center`}>
                     <stat.icon className="w-6 h-6 text-white" />
@@ -294,7 +294,7 @@ const Dashboard = () => {
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{vacancy.title}</h3>
+                            <h3 className="text-lg font-semibold text-blue-900 dark:text-white">{vacancy.title}</h3>
                             <Badge className={getStatusColor(vacancy.status)}>
                               {getStatusLabel(vacancy.status)}
                             </Badge>
@@ -370,7 +370,7 @@ const Dashboard = () => {
                             {candidate.first_name?.[0]}{candidate.last_name?.[0]}
                           </div>
                           <div>
-                            <h3 className="font-semibold text-slate-900 dark:text-white">
+                            <h3 className="font-semibold text-blue-900 dark:text-white">
                               {candidate.first_name} {candidate.last_name}
                             </h3>
                             <p className="text-sm text-slate-600 dark:text-slate-400">{candidate.email}</p>
@@ -381,7 +381,7 @@ const Dashboard = () => {
                             {candidate.years_experience} il təcrübə
                           </div>
                           {candidate.expected_salary_min && (
-                            <div className="text-sm font-medium text-slate-900 dark:text-white">
+                            <div className="text-sm font-medium text-blue-900 dark:text-white">
                               {candidate.expected_salary_min} - {candidate.expected_salary_max} AZN
                             </div>
                           )}
@@ -432,7 +432,7 @@ const Dashboard = () => {
                       <div className="flex justify-between items-start mb-4">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-semibold text-slate-900 dark:text-white">Müraciət #{application._row_id}</h3>
+                            <h3 className="font-semibold text-blue-900 dark:text-white">Müraciət #{application._row_id}</h3>
                             <Badge className={getStatusColor(application.status)}>
                               {getStatusLabel(application.status)}
                             </Badge>
@@ -513,7 +513,7 @@ const Dashboard = () => {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             <Calendar className="w-5 h-5 text-blue-600" />
-                            <h3 className="font-semibold text-slate-900 dark:text-white">
+                            <h3 className="font-semibold text-blue-900 dark:text-white">
                               {new Date(interview.scheduled_date * 1000).toLocaleDateString('az-AZ')} - {interview.scheduled_time}
                             </h3>
                             <Badge className={getStatusColor(interview.status)}>
