@@ -54,6 +54,11 @@ const InterviewRoom = () => {
   const [inputMode, setInputMode] = useState<InputMode>("voice");
   const [interviewSeconds, setInterviewSeconds] = useState(0);
   const [aiSpeaking, setAiSpeaking] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ role: "ai" | "user"; text: string; score?: number }[]>([]);
+  const [groqScores, setGroqScores] = useState<number[]>([]);
+  const [aiThinking, setAiThinking] = useState(false);
+  const [turnCount, setTurnCount] = useState(0);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
   const [persona] = useState(() => AI_PERSONAS[Math.floor(Math.random() * AI_PERSONAS.length)]);
 
   const speech = useSpeechRecognition();
@@ -113,6 +118,13 @@ const InterviewRoom = () => {
       setCurrentAnswer((speech.transcript + " " + speech.interimTranscript).trim());
     }
   }, [speech.transcript, speech.interimTranscript, inputMode]);
+
+  // Chat avtomatik scroll
+  useEffect(() => {
+    if (chatScrollRef.current) {
+      chatScrollRef.current.scrollTop = chatScrollRef.current.scrollHeight;
+    }
+  }, [chatMessages, aiThinking]);
 
   // Cleanup
   useEffect(() => {
@@ -505,16 +517,34 @@ const InterviewRoom = () => {
     { id: 6, type: "closing", difficulty: "easy", question: "Vəzifə və ya şirkət haqqında bizə sualınız var? Sizin üçün hansı məqamlar önəmlidir?", expected_keywords: ["sual", "question", "maraq"], time_limit: 90 },
   ];
 
-  const startInterview = () => {
+  const startInterview = async () => {
     setPhase("interview");
-    setCurrentQ(0);
     setCurrentAnswer("");
-    setAnswers([]);
     setInterviewSeconds(0);
+    setTurnCount(0);
+    setChatMessages([]);
+    setGroqScores([]);
+    setAiThinking(true);
 
-    // Insan kimi təbii salamlama - qısa cümlələrlə təbii fasilələr
-    const greeting = `Salam. Xoş gəlmisiniz. Mənim adım ${persona.name}. Bu gün, sizinlə tanış olmaq, mənim üçün çox xoşdur. ${vacancy?.title || "Vakansiya"} vəzifəsi üçün, qısa bir müsahibə aparacağıq. Zəhmət olmasa, rahat olun. Özünüzü, tam azad şəkildə ifadə edin. İlk sualım belədir. ${questions[0]?.question || ""}`;
-    setTimeout(() => speakText(greeting), 600);
+    try {
+      const result = await functions.post("ai-voice-chat", {
+        is_start: true,
+        persona_name: persona.name,
+        vacancy_title: vacancy?.title || "Vakansiya",
+        requirements: vacancy?.requirements || "",
+        turn: 0,
+      });
+      const greeting = result.reply || `Salam! Mənim adım ${persona.name}. Müsahibəyə başlayaq. Özünüzü təqdim edin.`;
+      setChatMessages([{ role: "ai", text: greeting }]);
+      setAiThinking(false);
+      setTimeout(() => speakText(greeting), 400);
+    } catch (err) {
+      console.error("[Groq] Start error:", err);
+      const greeting = `Salam! Mənim adım ${persona.name}. ${vacancy?.title || "Vakansiya"} vəzifəsi üçün müsahibəyə xoş gəlmisiniz. Özünüzü qısaca təqdim edin.`;
+      setChatMessages([{ role: "ai", text: greeting }]);
+      setAiThinking(false);
+      setTimeout(() => speakText(greeting), 400);
+    }
   };
 
   const toggleListening = () => {
@@ -534,48 +564,97 @@ const InterviewRoom = () => {
 
   const submitAnswer = async () => {
     const answerText = currentAnswer.trim();
-    if (answerText.length < 10) {
-      toast.error("Zəhmət olmasa daha ətraflı cavab verin (minimum 10 simvol)");
+    if (answerText.length < 5) {
+      toast.error("Zəhmət olmasa daha ətraflı cavab verin");
       return;
     }
 
     if (speech.isListening) speech.stop();
     setSubmitting(true);
-    const question = questions[currentQ];
+    setAiThinking(true);
+
+    // Namizədin mesajını söhbətə əlavə et
+    const newChat = [...chatMessages, { role: "user" as const, text: answerText }];
+    setChatMessages(newChat);
+    setCurrentAnswer("");
+    speech.reset();
+
+    // Groq-a söhbət tarixçəsini göndər
+    const groqMessages = newChat.map(m => ({
+      role: m.role === "ai" ? "assistant" : "user",
+      content: m.text,
+    }));
+
+    const newTurn = turnCount + 1;
+    setTurnCount(newTurn);
 
     try {
-      const result = await functions.post("ai-interview-engine", {
-        action: "evaluate_answer",
-        question: question.question,
-        answer: answerText,
-        vacancy_id: String(vacancy?._row_id || 1),
-        question_type: question.type,
-        expected_keywords: question.expected_keywords || [],
+      const result = await functions.post("ai-voice-chat", {
+        messages: groqMessages,
+        persona_name: persona.name,
+        vacancy_title: vacancy?.title || "Vakansiya",
+        requirements: vacancy?.requirements || "",
+        turn: newTurn,
       });
 
-      setFeedback(result.evaluation || {
-        score: 50, maxScore: 100, percentage: 50, quality: "satisfactory",
-        feedback: "Cavabınız qeydə alındı.",
-      });
-      setPhase("feedback");
-    } catch (err: any) {
-      console.error("Evaluation error:", err);
-      // Edge function bəzən 500 qaytarır amma məlumat correct
-      if (err?.details?.evaluation) {
-        setFeedback(err.details.evaluation);
-        setPhase("feedback");
-      } else {
-        setFeedback({
-          score: 50, maxScore: 100, percentage: 50, quality: "satisfactory",
-          feedback: "Cavabınız qeydə alındı. Texniki qiymətləndirmə müvəqqəti olaraq əlçatan deyil.",
-          breakdown: { relevance: 15, depth: 15, structure: 8, communication: 8, vacancy_fit: 4 },
-          word_count: answerText.split(/\s+/).length,
-        });
-        setPhase("feedback");
+      const aiReply = result.reply || "Təşəkkür edirəm. Növbəti suala keçək.";
+      const score = typeof result.score === "number" ? result.score : 50;
+      const shouldEnd = !!result.should_end || newTurn >= 7;
+
+      setGroqScores(prev => [...prev, score]);
+      setChatMessages(prev => [...prev, { role: "ai", text: aiReply, score }]);
+      setAiThinking(false);
+
+      setTimeout(() => speakText(aiReply), 300);
+
+      if (shouldEnd) {
+        const allScores = [...groqScores, score];
+        setTimeout(() => finishInterviewConversational(allScores, [...newChat, { role: "ai", text: aiReply }]), aiReply.length * 60 + 4000);
       }
+    } catch (err) {
+      console.error("[Groq] Submit error:", err);
+      const fallback = "Bağışlayın, texniki problem yarandı. Zəhmət olmasa cavabınızı təkrarlayın.";
+      setChatMessages(prev => [...prev, { role: "ai", text: fallback }]);
+      setAiThinking(false);
+      setTimeout(() => speakText(fallback), 300);
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const finishInterviewConversational = async (scores: number[], chat: any[]) => {
+    const avgScore = scores.length > 0
+      ? Math.round(scores.reduce((s, v) => s + v, 0) / scores.length)
+      : 50;
+
+    let decision = "Rədd edildi";
+    if (avgScore >= 75) decision = "Qəbul Edildi ✅";
+    else if (avgScore >= 55) decision = "Nəzərdən Keçirilir ⏳";
+
+    const userAnswers = chat.filter((m: any) => m.role === "user");
+
+    setFinalReport({
+      percentage: avgScore,
+      decision,
+      recommendation: "",
+      category_scores: {},
+      answers: userAnswers.map((m: any, i: number) => ({
+        given_answer: m.text,
+        percentage: scores[i] || 50,
+      })),
+      total_questions: userAnswers.length,
+    });
+
+    try {
+      await db.update("interviews", { _row_id: `eq.${interviewId}` }, {
+        status: "completed",
+        notes: JSON.stringify({ score: avgScore, decision, chat }),
+      });
+    } catch (e) {
+      console.error("Update interview error:", e);
+    }
+
+    setPhase("complete");
   };
 
   const nextQuestion = async () => {
@@ -753,7 +832,7 @@ const InterviewRoom = () => {
                 <div className="bg-slate-800/50 rounded-lg p-4">
                   <BrainCircuit className="w-6 h-6 text-green-400 mx-auto mb-1" />
                   <p className="text-2xl font-bold text-white">AI</p>
-                  <p className="text-xs text-slate-400">Qiymətləndirici</p>
+                  <p className="text-xs text-slate-400">Söhbət</p>
                 </div>
               </div>
 
@@ -764,7 +843,7 @@ const InterviewRoom = () => {
                 <div className="space-y-2 text-sm text-slate-300">
                   <div className="flex items-start gap-2">
                     <span className="text-purple-400 font-bold">1.</span>
-                    <span>AI müsahibəçi sualı <strong>səslə</strong> və yazılı təqdim edəcək</span>
+                    <span>AI <strong>canlı söhbət</strong> aparır — sual mexaniki oxumur</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-purple-400 font-bold">2.</span>
@@ -772,7 +851,7 @@ const InterviewRoom = () => {
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-purple-400 font-bold">3.</span>
-                    <span>AI cavabınızı <strong>5 kriteriya</strong> üzrə qiymətləndirir</span>
+                    <span>AI hər cavabınızı <strong>dərhal qiymətləndirir</strong> və izləmə sualı verir</span>
                   </div>
                   <div className="flex items-start gap-2">
                     <span className="text-purple-400 font-bold">4.</span>
@@ -800,11 +879,6 @@ const InterviewRoom = () => {
 
   // ===== INTERVIEW =====
   if (phase === "interview") {
-    const q = questions[currentQ];
-    const typeLabels: Record<string, string> = {
-      intro: "Tanışlıq", technical: "Texniki", experience: "Təcrübə",
-      behavioral: "Davranış", self_awareness: "Özünüqiymətləndirmə", closing: "Yekun",
-    };
 
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-blue-950 to-indigo-950 p-4">
@@ -813,10 +887,10 @@ const InterviewRoom = () => {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <span className="text-sm text-blue-300 font-medium">
-                Sual {currentQ + 1} / {questions.length}
+                💬 Canlı Söhbət • Turn {turnCount}
               </span>
-              <Badge variant="secondary" className="bg-purple-900/50 text-purple-300 border-purple-700">
-                {typeLabels[q.type] || q.type}
+              <Badge variant="secondary" className="bg-green-900/50 text-green-300 border-green-700">
+                🧠 Groq AI Voice
               </Badge>
             </div>
             <div className="flex items-center gap-2 text-sm text-slate-400">
@@ -825,7 +899,7 @@ const InterviewRoom = () => {
             </div>
           </div>
 
-          <Progress value={((currentQ) / questions.length) * 100} className="h-1.5 mb-6" />
+          <Progress value={Math.min((turnCount / 7) * 100, 100)} className="h-1.5 mb-6" />
 
           <div className="grid md:grid-cols-5 gap-4">
             {/* LEFT: Camera + AI */}
@@ -865,7 +939,7 @@ const InterviewRoom = () => {
                     </div>
                   </div>
                   <p className="text-purple-300 text-sm font-medium">
-                    {aiSpeaking ? `${persona.name} danışır...` : `${persona.name}`}
+                    {aiThinking ? `${persona.name} düşünür...` : aiSpeaking ? `${persona.name} danışır...` : `${persona.name}`}
                   </p>
                   {aiSpeaking && (
                     <div className="flex gap-1">
@@ -887,13 +961,34 @@ const InterviewRoom = () => {
               {/* Question */}
               <Card className="bg-slate-900/90 border-purple-800/30">
                 <CardHeader className="pb-3">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Button size="sm" variant="ghost" onClick={() => speakText(q.question)} className="text-purple-300 hover:text-purple-200 h-7">
-                      <Sparkles className="w-3 h-3 mr-1" /> {persona.name} səsləndirsin
-                    </Button>
-                  </div>
-                  <CardTitle className="text-lg text-white leading-relaxed">{q.question}</CardTitle>
+                  <p className="text-sm text-purple-300 font-medium flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4" /> Canlı Söhbət
+                  </p>
                 </CardHeader>
+                <CardContent>
+                  <div ref={chatScrollRef} className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
+                    {chatMessages.map((msg, i) => (
+                      <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
+                          msg.role === "user"
+                            ? "bg-gradient-to-r from-purple-600 to-indigo-600 text-white"
+                            : "bg-slate-800 text-slate-200 border border-purple-800/30"
+                        }`}>
+                          {msg.text}
+                        </div>
+                      </div>
+                    ))}
+                    {aiThinking && (
+                      <div className="flex justify-start">
+                        <div className="bg-slate-800 rounded-2xl px-4 py-3 flex items-center gap-1.5">
+                          {[0, 1, 2].map(i => (
+                            <div key={i} className="w-2 h-2 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: `${i * 0.15}s` }} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
               </Card>
 
               {/* Input mode toggle */}
@@ -978,13 +1073,13 @@ const InterviewRoom = () => {
                 <span className="text-xs text-slate-500">{currentAnswer.length} simvol • {currentAnswer.trim().split(/\s+/).filter(Boolean).length} söz</span>
                 <Button
                   onClick={submitAnswer}
-                  disabled={submitting || currentAnswer.trim().length < 10}
+                  disabled={submitting || aiThinking || currentAnswer.trim().length < 5}
                   className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
                 >
                   {submitting ? (
                     <>
                       <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-                      AI Qiymətləndirir...
+                      AI cavab düşünür...
                     </>
                   ) : (
                     <>
